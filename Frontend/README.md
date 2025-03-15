@@ -1,6 +1,6 @@
-# SQLMind - AI-Powered SQL Assistant
+# LangSQL - AI-Powered SQL Assistant
 
-SQLMind is a modern web application that helps developers generate, translate, and optimize SQL queries using artificial intelligence. It supports multiple SQL dialects including Trino and Spark SQL.
+LangSQL is a modern web application that helps developers generate, translate, and optimize SQL queries using artificial intelligence. It supports multiple SQL dialects including Trino and Spark SQL.
 
 ## Features
 
