@@ -15,7 +15,7 @@ This is DJANGO RESTFULL API server for LangSQL's AI & Data Processing work loads
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Yashparmar1125/PharmacyManagement_System.git
+   git clone https://github.com/Yashparmar1125/LangSQL.git
    cd LangSQL
 2. **Create and activate a virtual environment**:
     ```bash
