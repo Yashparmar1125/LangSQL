@@ -1,5 +1,6 @@
 {
-  "name": "sqlmind",
+  "name": "langsql-client",
+  "description": "This is the Frontend for LangSQL",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -17,6 +18,9 @@
     "axios": "^1.8.3",
     "firebase": "^11.5.0",
     "framer-motion": "^11.0.3",
+    "lang": "file:",
+    "langsql": "file:",
+    "langsql-client": "file:",
     "lucide-react": "^0.330.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
