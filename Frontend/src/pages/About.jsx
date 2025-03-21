@@ -46,9 +46,9 @@ const About = () => {
 
   const faqs = [
     {
-      question: 'What is SQLMind?',
+      question: 'What is LangSQL?',
       answer:
-        'SQLMind is an AI-powered SQL development platform that helps developers write, optimize, and manage SQL queries more efficiently. It combines advanced AI models with best practices to streamline database development.',
+        'LangSQL is an AI-powered SQL development platform that helps developers write, optimize, and manage SQL queries more efficiently. It combines advanced AI models with best practices to streamline database development.',
     },
     {
       question: 'How does the AI query generation work?',
@@ -58,7 +58,7 @@ const About = () => {
     {
       question: 'Which database systems are supported?',
       answer:
-        'SQLMind supports major database systems including MySQL, PostgreSQL, SQLite, SQL Server, and Oracle. We continuously add support for more databases based on user demand.',
+        'LangSQL supports major database systems including MySQL, PostgreSQL, SQLite, SQL Server, and Oracle. We continuously add support for more databases based on user demand.',
     },
     {
       question: 'Is my data secure?',
@@ -108,7 +108,7 @@ const About = () => {
               className="inline-block mb-4 px-6 py-2 rounded-full bg-gradient-to-r from-blue-500/10 to-[#00E5FF]/10 backdrop-blur-sm border border-blue-500/20 dark:border-[#00E5FF]/20 shadow-xl"
             >
               <span className="text-sm font-medium bg-gradient-to-r from-blue-500 to-[#00E5FF] bg-clip-text text-transparent">
-                ✨ About SQLMind
+                ✨ About LangSQL
               </span>
             </motion.div>
             
@@ -225,7 +225,7 @@ const About = () => {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">Documentation</h2>
               </div>
               <p className="text-gray-600 dark:text-gray-400 mb-6 text-lg">
-                Explore our comprehensive documentation to learn more about SQLMind's features and capabilities.
+                Explore our comprehensive documentation to learn more about LangSQL's features and capabilities.
               </p>
               <motion.a
                 href="#"

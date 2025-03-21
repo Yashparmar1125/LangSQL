@@ -71,11 +71,11 @@ const DashboardLayout = ({ children }) => {
               <Link to="/dashboard" className="flex items-center gap-3">
                 <img
                   src={isDark ? "/Logo-White.png" : "/Logo-Dark.png"}
-                  alt="SQLMind Logo"
+                  alt="LangSQL Logo"
                   className="h-8 w-auto"
                 />
-                <span className="text-xl font-bold text-gray-900 dark:text-white hidden sm:inline-block">
-                  SQLMind
+                <span className="text-xl font-bold bg-gradient-to-r from-blue-500 to-[#00E5FF] bg-clip-text text-transparent">
+                  LangSQL
                 </span>
               </Link>
             </div>

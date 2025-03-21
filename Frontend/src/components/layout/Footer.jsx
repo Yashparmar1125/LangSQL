@@ -12,17 +12,17 @@ export default function Footer() {
   const socialLinks = [
     {
       name: 'GitHub',
-      href: 'https://github.com/sqlmind',
+      href: 'https://github.com/LangSQL',
       icon: Github,
     },
     {
       name: 'Twitter',
-      href: 'https://twitter.com/sqlmind',
+      href: 'https://twitter.com/LangSQL',
       icon: Twitter,
     },
     {
       name: 'LinkedIn',
-      href: 'https://linkedin.com/company/sqlmind',
+      href: 'https://linkedin.com/company/LangSQL',
       icon: Linkedin,
     },
   ]
@@ -57,7 +57,7 @@ export default function Footer() {
             ))}
           </nav>
           <p className="mt-4 text-center text-xs leading-5 text-gray-500 dark:text-gray-400">
-            &copy; {new Date().getFullYear()} SQLMind. All rights reserved.
+            &copy; {new Date().getFullYear()} LangSQL. All rights reserved.
           </p>
         </div>
       </div>

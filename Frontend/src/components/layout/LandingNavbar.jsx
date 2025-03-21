@@ -93,7 +93,7 @@ const LandingNavbar = () => {
               Contact Us
             </Link>
             <Link
-              to="/docs"
+              to="/about"
               className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Docs

@@ -21,13 +21,13 @@ const Tutorial = () => {
 
   const steps = [
     {
-      title: 'Welcome to SQLMind',
+      title: 'Welcome to LangSQL',
       description: 'Your AI-powered SQL assistant for smarter database management',
       icon: Database,
       content: (
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">
-            SQLMind helps you with:
+            LangSQL helps you with:
           </p>
           <ul className="space-y-3">
             <li className="flex items-center space-x-3">
@@ -65,7 +65,7 @@ const Tutorial = () => {
       content: (
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">
-            SQLMind supports multiple database types:
+            LangSQL supports multiple database types:
           </p>
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-xl bg-white/50 dark:bg-[#111113]/50 border border-gray-200/50 dark:border-gray-800/50">
@@ -111,7 +111,7 @@ const Tutorial = () => {
             </p>
           </div>
           <p className="text-gray-600 dark:text-gray-400 mt-4">
-            SQLMind will generate:
+            LangSQL will generate:
           </p>
           <ul className="space-y-2">
             <li className="flex items-center space-x-2">
