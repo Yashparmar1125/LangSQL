@@ -15,7 +15,7 @@ import connectDB from "./utils/connection.util.js";
 
 //routes imports
 import healthRoutes from "./routes/health.routes.js";
-
+import authRoutes from "./routes/auth.routes.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -73,7 +73,7 @@ app.use(cors(CORS_OPTIONS)); //enables Cross-Origin Resource Sharing
 
 //routes
 app.use("/api", healthRoutes);
-
+app.use("/api/auth", authRoutes);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
