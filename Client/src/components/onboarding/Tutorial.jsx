@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronRight,
@@ -9,15 +9,18 @@ import {
   Zap,
   X,
   CheckCircle,
+  Loader2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { completeTutorial, skipTutorial, setCurrentStep } from '../../redux/slices/onboardingSlice'
-
+import { authAPI } from '../../services/axios.api'
 const Tutorial = () => {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const currentStep = useSelector((state) => state.onboarding.currentStep)
+  const [isSkipLoading, setIsSkipLoading] = useState(false)
+  const [isCompleteLoading, setIsCompleteLoading] = useState(false)
 
   const steps = [
     {
@@ -169,15 +172,35 @@ const Tutorial = () => {
     },
   ]
 
-  const handleSkip = () => {
-    dispatch(skipTutorial())
-    navigate('/dashboard')
+  const handleSkip = async () => {
+    setIsSkipLoading(true)
+    try {
+      const response = await authAPI.completeTutorial() 
+      if (response.data.success === true) {
+        dispatch(skipTutorial())
+        navigate('/dashboard')
+      }
+    } catch (error) {
+      console.error('Failed to skip tutorial:', error)
+    } finally {
+      setIsSkipLoading(false)
+    }
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === steps.length - 1) {
-      dispatch(completeTutorial())
-      navigate('/dashboard')
+      setIsCompleteLoading(true)
+      try {
+        const response = await authAPI.completeTutorial()
+        if (response.data.success === true) {  
+          dispatch(completeTutorial())
+          navigate('/dashboard')
+        }
+      } catch (error) {
+        console.error('Failed to complete tutorial:', error)
+      } finally {
+        setIsCompleteLoading(false)
+      }
     } else {
       dispatch(setCurrentStep(currentStep + 1))
     }
@@ -212,10 +235,15 @@ const Tutorial = () => {
           </div>
           <button
             onClick={handleSkip}
-            className="flex items-center space-x-2 px-3 py-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-200"
+            disabled={isSkipLoading}
+            className="flex items-center space-x-2 px-3 py-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="text-sm">Skip tutorial</span>
-            <X className="w-4 h-4" />
+            {isSkipLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <X className="w-4 h-4" />
+            )}
           </button>
         </div>
 
@@ -245,12 +273,7 @@ const Tutorial = () => {
               <ChevronLeft className="w-5 h-5" />
               <span>Previous</span>
             </button>
-            <button
-              onClick={handleSkip}
-              className="flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-200"
-            >
-              <span>Skip tutorial</span>
-            </button>
+            
           </div>
 
           <div className="flex items-center space-x-4">
@@ -269,10 +292,15 @@ const Tutorial = () => {
             </div>
             <button
               onClick={handleNext}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-500 dark:bg-[#00E5FF] text-white dark:text-black rounded-lg hover:bg-blue-600 dark:hover:bg-[#00E5FF]/90 transition-colors"
+              disabled={isCompleteLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-500 dark:bg-[#00E5FF] text-white dark:text-black rounded-lg hover:bg-blue-600 dark:hover:bg-[#00E5FF]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>{currentStep === steps.length - 1 ? 'Get Started' : 'Next'}</span>
-              <ChevronRight className="w-5 h-5" />
+              {currentStep === steps.length - 1 && isCompleteLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ChevronRight className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>

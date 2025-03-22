@@ -34,8 +34,8 @@ firebaseAdmin.initializeApp({
 const CORS_OPTIONS = {
   origin: (origin, callback) => {
     const allowedOrigins = [
-      "http://192.168.0.104:3030", // Your React app's IP and port
-      "http://localhost:3030",
+      "http://192.168.0.104:5173", // Your React app's IP and port
+      "http://localhost:5173",
     ];
 
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
@@ -55,20 +55,21 @@ const limiter = rateLimit({
 
 //server config/initialization
 dotenv.config();
+
 const PORT = process.env.PORT || 3000;
 connectDB();
 const app = express();
 
 //middlewares
-app.use(morgan("dev"));     //logs requests to the console
-app.use(helmet());          //sets security HTTP headers
-app.use(mongoSanitize());   //cleans user input from malicious HTML
-app.use(xssClean());    //cleans user input from malicious scripts
-app.use(hpp());    //prevents HTTP Parameter Pollution attacks
-app.use(limiter);   //limits repeated requests
-app.use(express.json());  //parses incoming requests with JSON payloads
+app.use(morgan("dev")); //logs requests to the console
+app.use(helmet()); //sets security HTTP headers
+app.use(mongoSanitize()); //cleans user input from malicious HTML
+app.use(xssClean()); //cleans user input from malicious scripts
+app.use(hpp()); //prevents HTTP Parameter Pollution attacks
+app.use(limiter); //limits repeated requests
+app.use(express.json()); //parses incoming requests with JSON payloads
 app.use(express.urlencoded({ extended: true })); //parses incoming requests with URL-encoded payloads
-app.use(cookieParser());  //parses incoming requests with cookies
+app.use(cookieParser()); //parses incoming requests with cookies
 app.use(cors(CORS_OPTIONS)); //enables Cross-Origin Resource Sharing
 
 //routes

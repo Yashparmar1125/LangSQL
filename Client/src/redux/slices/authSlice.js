@@ -1,21 +1,14 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-// Demo user for testing UI
-const demoUser = {
-  id: 1,
-  name: "Demo User",
-  email: "demo@LangSQL.dev",
-  role: "user",
-  createdAt: new Date().toISOString(),
-};
-
+// Initial state for authentication
 const initialState = {
-  user: demoUser, // Set demo user by default
-  token: "demo-token", // Demo token
-  isAuthenticated: true, // Set authenticated by default
+  user: null, // No user initially
+  user_id: null, // No user ID initially
+  token: null, // No token initially
+  isAuthenticated: false, // User is not authenticated by default
   isLoading: false,
   error: null,
-  lastLogin: new Date().toISOString(),
+  lastLogin: null,
   rememberMe: false,
 };
 
@@ -31,6 +24,7 @@ const authSlice = createSlice({
       state.isLoading = false;
       state.isAuthenticated = true;
       state.user = action.payload.user;
+      state.user_id = action.payload.user.id; // Set the user_id
       state.token = action.payload.token;
       state.lastLogin = new Date().toISOString();
       state.error = null;
@@ -41,12 +35,14 @@ const authSlice = createSlice({
       state.error = action.payload;
     },
     logout: (state) => {
-      // For demo, reset to demo user instead of null
-      state.user = demoUser;
-      state.token = "demo-token";
-      state.isAuthenticated = true;
+      // Reset to initial state on logout
+      state.user = null;
+      state.user_id = null; // Reset user_id
+      state.token = null;
+      state.isAuthenticated = false;
       state.isLoading = false;
       state.error = null;
+      state.lastLogin = null;
     },
     setRememberMe: (state, action) => {
       state.rememberMe = action.payload;
@@ -55,7 +51,9 @@ const authSlice = createSlice({
       state.error = null;
     },
     updateUserProfile: (state, action) => {
-      state.user = { ...state.user, ...action.payload };
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
     },
   },
 });

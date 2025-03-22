@@ -5,6 +5,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  imageURL: {
+    type: String,
+    default: null,
+  },
+
   uid: {
     type: String,
     required: true,
@@ -23,6 +28,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["admin", "user"],
     default: "user",
+  },
+  lastLogin: {
+    type: Date,
+    default: Date.now,
+  },
+  isTutorialCompleted: {
+    type: Boolean,
+    default: false,
   },
   createdAt: {
     type: Date,

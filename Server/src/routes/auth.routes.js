@@ -16,9 +16,11 @@ import {
   googleRegister,
   githubRegister,
   githubLogin,
+  completeTutorial,
 } from "../controllers/auth.controller.js";
-const router = express.Router();
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 
+const router = express.Router();
 
 //routes
 router.post("/register", validateRegistration, register);
@@ -27,7 +29,7 @@ router.post("/google/register", googleRegister);
 router.post("/github/register", githubRegister);
 router.post("/github/login", githubLogin);
 router.post("/login", validateLogin, login);
-router.get("/logout", logout);
-
+router.post("/tutorial/complete", authMiddleware, completeTutorial);
+router.post("/logout", logout);
 
 export default router;

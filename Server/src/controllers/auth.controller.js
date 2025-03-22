@@ -4,6 +4,9 @@ import { createToken, verifyToken } from "../utils/jwt.util.js";
 import { hashPassword, comparePassword } from "../utils/password.util.js";
 import firebaseAdmin from "firebase-admin";
 
+
+
+
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -91,6 +94,8 @@ export const login = async (req, res) => {
         .status(401)
         .json({ message: "Invalid Credentials", success: false });
     }
+    user.lastLogin = new Date();
+    await user.save();
 
     // Create a JWT token
     const token = createToken(user._id);
@@ -294,5 +299,30 @@ export const githubLogin = async (req, res) => {
   } catch (error) {
     console.error("Error verifying Firebase ID token:", error);
     res.status(401).json({ message: "Unauthorized", error: error.message });
+  }
+};
+
+export const completeTutorial = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
+    }
+
+    user.isTutorialCompleted = true;
+    await user.save();
+
+    return res
+      .status(200)
+      .json({ message: "Tutorial completed", success: true });
+  } catch (error) {
+    console.error("Error completing tutorial:", error);
+    return res
+      .status(500)
+      .json({ message: "Internal server error", success: false });
   }
 };

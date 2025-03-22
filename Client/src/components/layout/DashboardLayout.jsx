@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, Database, Sun, Moon, Home, Settings, FileCode, Network, LogOut, Bell, User, ChevronDown, BarChart2 } from 'lucide-react'
+import { Menu, X, Database, Sun, Moon, Home, Settings, FileCode, Network, LogOut, Bell, User, ChevronDown, BarChart2, Loader2 } from 'lucide-react'
 import { toggleTheme } from '../../redux/slices/themeSlice'
 import { logout } from '../../redux/slices/authSlice'
+import { authAPI } from '../../services/axios.api'
+import { useToast } from '../../contexts/ToastContext'
 
 const DashboardLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -17,8 +19,11 @@ const DashboardLayout = ({ children }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const dispatch = useDispatch()
+  const [error, setError] = useState('')
+  const { showSuccess, showError } = useToast()
   const { isDark } = useSelector((state) => state.theme)
   const { user } = useSelector((state) => state.auth)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Demo notifications
   const notifications = [
@@ -58,9 +63,39 @@ const DashboardLayout = ({ children }) => {
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
-  const handleLogout = () => {
-    dispatch(logout())
-    navigate('/')
+  const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
+    setIsLoggingOut(true)
+    setIsUserMenuOpen(false) // Close the menu immediately
+    
+    try {
+      const response = await authAPI.logout()
+      if (response.data.success === true) {
+        // Clear any local storage/cookies
+        localStorage.clear()
+        
+        // Dispatch logout action
+        dispatch(logout())
+        
+        // Show success message
+        showSuccess('Successfully logged out')
+        
+        // Navigate to landing page
+        navigate('/', { replace: true })
+      } else {
+        throw new Error('Logout failed')
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to logout. Please try again.'
+      showError(errorMessage)
+      
+      // Still logout the user on frontend if backend fails
+      dispatch(logout())
+      navigate('/', { replace: true })
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   const handleThemeToggle = () => {
@@ -158,7 +193,7 @@ const DashboardLayout = ({ children }) => {
               </button>
               <div className="hidden md:block">
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Welcome back, {user?.email?.split('@')[0] || 'User'}!
+                  Welcome back, {user?.name|| 'User'}!
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -242,11 +277,16 @@ const DashboardLayout = ({ children }) => {
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-[#00E5FF] flex items-center justify-center text-white font-medium">
-                    {user?.email?.[0].toUpperCase() || 'U'}
+                    {user?.imageUrl ? (
+                      <img src={user.imageUrl} alt="User Avatar" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      user?.name?.[0].toUpperCase() || 'U'
+                    )}
                   </div>
+
                   <div className="hidden md:block text-left">
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {user?.email}
+                      {user?.name}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {user?.role || 'User'}
@@ -276,10 +316,15 @@ const DashboardLayout = ({ children }) => {
                         </Link>
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          disabled={isLoggingOut}
+                          className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <LogOut className="w-4 h-4" />
-                          <span>Logout</span>
+                          {isLoggingOut ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <LogOut className="w-4 h-4" />
+                          )}
+                          <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
                         </button>
                       </div>
                     </motion.div>

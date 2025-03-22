@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Cloud,
@@ -23,68 +23,421 @@ import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { authAPI } from '../services/axios.api'
 import { useToast } from '../contexts/ToastContext'
-import { login } from '../store/authSlice'
+import { loginStart, loginSuccess, loginFailure } from '../redux/slices/authSlice'
+import { completeTutorial, resetOnboarding } from '../redux/slices/onboardingSlice'
+import { sendVerificationEmail, sendWelcomeEmail } from '../utils/emailjs'
 
 const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin }) => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [registerForm, setRegisterForm] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
   })
+  const [showVerification, setShowVerification] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [resendTimeout, setResendTimeout] = useState(0)
+  const [showResendSuccess, setShowResendSuccess] = useState(false)
+  const [verificationData, setVerificationData] = useState(null)
 
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { showSuccess, showError } = useToast()
   const { isDark } = useSelector((state) => state.theme)
 
-  const handleLogin = async (e) => {
+  // Reset states when switching between login/register or closing modal
+  useEffect(() => {
+    setError('')
+    setShowVerification(false)
+    setVerificationCode('')
+    setResendTimeout(0)
+    setShowResendSuccess(false)
+    setVerificationData(null)
+  }, [isLogin, show])
+
+  // Handle countdown timer
+  useEffect(() => {
+    let timer
+    if (resendTimeout > 0) {
+      timer = setInterval(() => {
+        setResendTimeout(prev => prev - 1)
+      }, 1000)
+    }
+    return () => clearInterval(timer)
+  }, [resendTimeout])
+
+  // Function to generate a 6-digit code
+  const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString()
+  }
+
+  const handleResendCode = async () => {
+    if (resendTimeout > 0) return
+    
+    setIsLoading(true)
+    try {
+      // Generate new verification code
+      const newVerificationCode = generateVerificationCode()
+      
+      // Send new verification email
+      await sendVerificationEmail(registerForm.email, newVerificationCode,registerForm.name)
+      
+      // Update verification data
+      setVerificationData({
+        code: newVerificationCode,
+        timestamp: Date.now()
+      })
+      
+      setResendTimeout(60) // Start 60 second countdown
+      setShowResendSuccess(true)
+      setTimeout(() => setShowResendSuccess(false), 3000)
+      showSuccess('Verification code resent!')
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to resend code. Please try again.'
+      setError(errorMessage)
+      showError(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerification = async (e) => {
     e.preventDefault()
-    if (!loginForm.email || !loginForm.password) {
+    if (!verificationCode) {
+      showError('Please enter verification code')
+      return
+    }
+
+    setIsVerifying(true)
+    try {
+      // Verify the code
+      if (!verificationData || verificationCode !== verificationData.code) {
+        throw new Error('Invalid verification code')
+      }
+
+      // Check if code is expired (15 minutes)
+      if (Date.now() - verificationData.timestamp > 15 * 60 * 1000) {
+        throw new Error('Verification code has expired')
+      }
+
+      // If code is verified, proceed with registration
+      const registerResponse = await authAPI.register(registerForm)
+      
+      if (registerResponse.data.success === true) {
+        console.log('Registration successful, sending welcome email...')
+        try {
+          const welcomeResponse = await sendWelcomeEmail(registerForm.email, registerForm.name)
+          console.log('Welcome email sent:', welcomeResponse)
+          
+          dispatch(loginSuccess(registerResponse.data))
+          dispatch(resetOnboarding())
+          showSuccess('Registration successful!')
+          onClose()
+          navigate('/dashboard')
+        } catch (emailError) {
+          console.error('Failed to send welcome email:', emailError)
+          // Still proceed with registration even if welcome email fails
+          dispatch(loginSuccess(registerResponse.data))
+          dispatch(resetOnboarding())
+          showSuccess('Registration successful! (Welcome email could not be sent)')
+          onClose()
+          navigate('/dashboard')
+        }
+      } else {
+        throw new Error(registerResponse.data.message || 'Registration failed')
+      }
+    } catch (error) {
+      const errorMessage = error.message || 'Invalid verification code'
+      setError(errorMessage)
+      showError(errorMessage)
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  const handleRegister = async (e) => {
+    e.preventDefault()
+    setError('')
+    
+    if (!registerForm.name || !registerForm.email || !registerForm.password) {
+      setError('Please fill in all fields')
       showError('Please fill in all fields')
       return
     }
     
     setIsLoading(true)
     try {
-      const response = await authAPI.login(loginForm)
-      dispatch(login(response.data))
-      showSuccess('Login successful!')
-      onClose()
-      navigate('/dashboard')
+      // Generate a verification code
+      const verificationCode = generateVerificationCode()
+      
+      // Send verification email
+      await sendVerificationEmail(registerForm.email, verificationCode, registerForm.name)
+      
+      // Store verification data
+      setVerificationData({
+        code: verificationCode,
+        timestamp: Date.now()
+      })
+      
+      showSuccess('Verification code sent to your email!')
+      setShowVerification(true)
     } catch (error) {
-      showError(error.response?.data?.message || 'Login failed')
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to send verification code. Please try again.'
+      setError(errorMessage)
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleRegister = async (e) => {
-    e.preventDefault()
-    if (registerForm.password !== registerForm.confirmPassword) {
-      showError('Passwords do not match')
+  const handleLogin = async (e) => {
+    // Prevent form submission
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
+    setError('')
+    
+    if (!loginForm.email || !loginForm.password) {
+      setError('Please fill in all fields')
+      showError('Please fill in all fields')
       return
     }
     
     setIsLoading(true)
+    dispatch(loginStart())
+    
     try {
-      await authAPI.register(registerForm)
-      showSuccess('Registration successful! Please login.')
-      setRegisterForm({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-      })
+      const response = await authAPI.login(loginForm)
+      
+      // Check if response has the expected data structure
+      if (response.data.success === false) {
+        throw new Error('Invalid response from server')
+      }
+
+      dispatch(loginSuccess(response.data))
+      
+      // Handle tutorial completion state
+      if (response.data.user.isTutorialCompleted) {
+        dispatch(completeTutorial())
+      } else {
+        dispatch(resetOnboarding())
+      }
+      
+      showSuccess('Login successful!')
+      setLoginForm({ email: '', password: '' })
       onClose()
+      navigate('/dashboard')
     } catch (error) {
-      showError(error.response?.data?.message || 'Registration failed')
+      // Handle the specific error response format from the backend
+      const errorMessage = error.response?.data?.message || 'An unexpected error occurred'
+      
+      setError(errorMessage)
+      dispatch(loginFailure(errorMessage))
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Render verification screen if showVerification is true
+  if (showVerification) {
+    return (
+      <AnimatePresence mode="wait">
+        {show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 overflow-y-auto"
+          >
+            <div className="min-h-screen px-4 text-center">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+                onClick={onClose}
+              />
+
+              <div className="fixed inset-0 flex items-center justify-center">
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                  transition={{ duration: 0.2 }}
+                  className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white/80 dark:bg-[#111113]/80 backdrop-blur-xl p-8 text-left shadow-2xl border border-gray-200/50 dark:border-gray-800/50"
+                >
+                  {/* Close button */}
+                  <motion.button
+                    whileHover={{ scale: 1.1, rotate: 90 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={onClose}
+                    className="absolute top-4 right-4 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                  </motion.button>
+
+                  {/* Email icon with animation */}
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", duration: 0.6 }}
+                    className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/10 to-[#00E5FF]/10 flex items-center justify-center mb-6"
+                  >
+                    <motion.div
+                      animate={{ 
+                        y: [0, -5, 0],
+                        rotate: [0, -5, 5, 0]
+                      }}
+                      transition={{ 
+                        duration: 2,
+                        repeat: Infinity,
+                        repeatType: "reverse"
+                      }}
+                    >
+                      <Mail className="w-10 h-10 text-blue-500 dark:text-[#00E5FF]" />
+                    </motion.div>
+                  </motion.div>
+
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                      Check Your Email
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400 text-lg">
+                      We've sent a verification code to
+                    </p>
+                    <p className="text-blue-500 dark:text-[#00E5FF] font-medium text-lg mt-1">
+                      {registerForm.email}
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleVerification} className="space-y-6">
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center gap-3"
+                      >
+                        <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          {error}
+                        </p>
+                      </motion.div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
+                        Enter 6-digit verification code
+                      </label>
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="one-time-code"
+                          value={verificationCode}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9]/g, '')
+                            if (value.length <= 6) {
+                              setVerificationCode(value)
+                            }
+                          }}
+                          className="w-full px-4 py-3 bg-white dark:bg-[#0A0A0B] border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all text-center text-3xl tracking-[1em] font-mono"
+                          placeholder="______"
+                          maxLength={6}
+                        />
+                        <div className="absolute -bottom-6 left-0 right-0 flex justify-center gap-4">
+                          {[...Array(6)].map((_, i) => (
+                            <div
+                              key={i}
+                              className={`relative w-8 h-1 rounded-full transition-all duration-200 ${
+                                verificationCode.length > i
+                                  ? 'bg-blue-500 dark:bg-[#00E5FF] scale-100'
+                                  : 'bg-gray-200 dark:bg-gray-800 scale-95'
+                              }`}
+                            >
+                              {verificationCode.length === i && (
+                                <motion.div
+                                  layoutId="cursor"
+                                  className="absolute inset-0 bg-blue-500 dark:bg-[#00E5FF] rounded-full"
+                                  animate={{
+                                    opacity: [1, 0.5, 1],
+                                  }}
+                                  transition={{
+                                    duration: 1,
+                                    repeat: Infinity,
+                                  }}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-10 text-center space-y-2">
+                        {showResendSuccess && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="text-sm text-green-600 dark:text-green-400"
+                          >
+                            ✓ New code sent successfully!
+                          </motion.p>
+                        )}
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Didn't receive the code?{' '}
+                          {resendTimeout > 0 ? (
+                            <span className="text-blue-500 dark:text-[#00E5FF]">
+                              Resend in {resendTimeout}s
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleResendCode}
+                              disabled={isLoading || resendTimeout > 0}
+                              className="text-blue-500 dark:text-[#00E5FF] hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Resend
+                            </button>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isVerifying || verificationCode.length !== 6}
+                      className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-[#00E5FF] dark:from-[#00E5FF] dark:to-blue-500 text-white dark:text-black font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 dark:shadow-[#00E5FF]/25 flex items-center justify-center space-x-2"
+                    >
+                      {isVerifying ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-5 h-5 border-2 border-white dark:border-black border-t-transparent rounded-full"
+                        />
+                      ) : (
+                        <>
+                          <span>Verify Email</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    )
   }
 
   return (
@@ -166,6 +519,18 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                   onSubmit={isLogin ? handleLogin : handleRegister}
                   className="space-y-4"
                 >
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20"
+                    >
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {error}
+                      </p>
+                    </motion.div>
+                  )}
+                  
                   {!isLogin && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
@@ -237,39 +602,12 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                     </div>
                   </div>
                   
-                  {!isLogin && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                    >
-                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                        Confirm Password
-                      </label>
-                      <div className="relative group">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-[#00E5FF] transition-colors" />
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          value={registerForm.confirmPassword}
-                          onChange={(e) =>
-                            setRegisterForm({
-                              ...registerForm,
-                              confirmPassword: e.target.value,
-                            })
-                          }
-                          className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-[#0A0A0B] border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all"
-                          placeholder="••••••••"
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                  
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-[#00E5FF] dark:from-[#00E5FF] dark:to-blue-500 text-white dark:text-black font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-blue-500/25 dark:shadow-[#00E5FF]/25 flex items-center justify-center space-x-2"
+                    className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-[#00E5FF] dark:from-[#00E5FF] dark:to-blue-500 text-white dark:text-black font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 dark:shadow-[#00E5FF]/25 flex items-center justify-center space-x-2"
                   >
                     {isLoading ? (
                       <motion.div
@@ -316,7 +654,6 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                             name: '',
                             email: '',
                             password: '',
-                            confirmPassword: '',
                           })
                           onClose()
                           onSwitchToLogin()
@@ -370,20 +707,20 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
 const Landing = () => {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [showRegisterModal, setShowRegisterModal] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
-  const [registerForm, setRegisterForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  })
-  
-  const navigate = useNavigate()
-  const dispatch = useDispatch()
-  const { showSuccess, showError } = useToast()
   const { isDark } = useSelector((state) => state.theme)
+
+  const closeLoginModal = useCallback(() => setShowLoginModal(false), [])
+  const closeRegisterModal = useCallback(() => setShowRegisterModal(false), [])
+
+  const switchToRegister = useCallback(() => {
+    setShowLoginModal(false)
+    setShowRegisterModal(true)
+  }, [])
+
+  const switchToLogin = useCallback(() => {
+    setShowRegisterModal(false)
+    setShowLoginModal(true)
+  }, [])
 
   const features = [
     {
@@ -441,60 +778,6 @@ const Landing = () => {
       avatar: '/soham.png',
     },
   ]
-
-  const closeLoginModal = useCallback(() => setShowLoginModal(false), [])
-  const closeRegisterModal = useCallback(() => setShowRegisterModal(false), [])
-
-  const switchToRegister = useCallback(() => {
-    setShowLoginModal(false)
-    setShowRegisterModal(true)
-  }, [])
-
-  const switchToLogin = useCallback(() => {
-    setShowRegisterModal(false)
-    setShowLoginModal(true)
-  }, [])
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    if (!loginForm.email || !loginForm.password) {
-      showError('Please fill in all fields')
-      return
-    }
-    
-    setIsLoading(true)
-    try {
-      const response = await authAPI.login(loginForm)
-      dispatch(login(response.data))
-      showSuccess('Login successful!')
-      setShowLoginModal(false)
-      navigate('/dashboard')
-    } catch (error) {
-      showError(error.response?.data?.message || 'Login failed')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleRegister = async (e) => {
-    e.preventDefault()
-    if (registerForm.password !== registerForm.confirmPassword) {
-      showError('Passwords do not match')
-      return
-    }
-    
-    setIsLoading(true)
-    try {
-      await authAPI.register(registerForm)
-      showSuccess('Registration successful! Please login.')
-      setShowRegisterModal(false)
-      setShowLoginModal(true)
-    } catch (error) {
-      showError(error.response?.data?.message || 'Registration failed')
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-[#0A0A0B] dark:via-[#0D0D0F] dark:to-[#111113] text-gray-900 dark:text-white transition-all">

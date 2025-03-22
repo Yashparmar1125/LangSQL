@@ -1,7 +1,6 @@
 import axios from "axios";
 import { handleAPIError } from "../utils/errorHandler";
 
-
 const API_URL = import.meta.env.VITE_API_HOST || "http://localhost:3000";
 
 // Create axios instance with default config
@@ -10,15 +9,14 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // No need to manually set Authorization header
+    // The cookie will be automatically sent by the browser
     return config;
   },
   (error) => {
@@ -30,21 +28,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      window.location.href = "/";
-    }
+    // Just reject the error, no need to handle token removal
     return Promise.reject(error);
   }
 );
-
-// Demo user credentials
-const DEMO_USER = {
-  email: "demo@example.com",
-  password: "demo123",
-  name: "Demo User",
-  token: "demo-token-123",
-};
 
 // Auth API
 export const authAPI = {
@@ -60,17 +47,17 @@ export const authAPI = {
         }
       );
 
-      const userData = response.data;
-      // Store the token in localStorage (you might want to store it in cookies instead for better security)
-      localStorage.setItem("token", userData.token);
-
-      return { data: userData };
+      // Since we're using cookie-based auth, we don't need to handle tokens manually
+      // The cookie will be automatically handled by the browser
+      return { data: response.data };
     } catch (error) {
+      // Handle errors without redirecting
+      const errorMessage =
+        error.response?.data?.message || "Invalid credentials";
       throw {
         response: {
-          data: {
-            message: error.response?.data?.message || "Error logging in",
-          },
+          status: error.response?.status,
+          data: { message: errorMessage },
         },
       };
     }
@@ -84,7 +71,7 @@ export const authAPI = {
         withCredentials: true, // Send cookies with the request
       });
 
-      return { data: { message: "Registration successful" } };
+      return { data: response.data };
     } catch (error) {
       throw {
         response: {
@@ -104,12 +91,10 @@ export const authAPI = {
         "/api/auth/logout",
         {},
         {
-          withCredentials: true, // Send cookies with the request
+          withCredentials: true,
         }
       );
-      localStorage.removeItem("token"); // Optionally clear the token from localStorage
-
-      return { data: { message: "Logout successful" } };
+      return { data: response.data };
     } catch (error) {
       throw {
         response: {
@@ -118,6 +103,17 @@ export const authAPI = {
           },
         },
       };
+    }
+  },
+
+  completeTutorial: async () => {
+    try {
+      const response = await api.post("/api/auth/tutorial/complete", {
+        withCredentials: true,
+      });
+      return { data: response.data };
+    } catch (error) {
+      throw handleAPIError(error);
     }
   },
 
