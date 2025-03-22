@@ -159,95 +159,107 @@ const ManageDatabases = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background text-foreground p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-bold">Database Connections</h1>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all flex items-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Connection</span>
-            </button>
-          </div>
-
-          {/* Connection Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {connections.map((connection) => (
-              <div
-                key={connection.id}
-                className="bg-white dark:bg-[#111113] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                      <Database className="w-5 h-5 text-blue-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{connection.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{connection.type}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {connection.status === 'connected' ? (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-red-500" />
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2 mb-4">
-                  <p className="text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">Host: </span>
-                    {connection.host}
-                  </p>
-                  <p className="text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">Database: </span>
-                    {connection.database}
-                  </p>
-                  <p className="text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">Last Connected: </span>
-                    {connection.lastConnected}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleTestConnection(connection.id)}
-                      disabled={isLoading}
-                      className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button
-                      onClick={() => openEditModal(connection)}
-                      className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(connection)}
-                      className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => openViewDetails(connection)}
-                    className="flex items-center space-x-1 text-sm text-primary hover:text-primary/90 transition-colors"
-                  >
-                    <span>View Details</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-[#0A0A0B] dark:via-[#0D0D0F] dark:to-[#111113] text-gray-900 dark:text-white p-6 transition-all duration-300 ease-in-out">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="max-w-[1600px] mx-auto"
+        >
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-2xl font-bold mb-2">Database Connections</h1>
+                <p className="text-gray-600 dark:text-gray-400">Manage and monitor your database connections</p>
               </div>
-            ))}
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Connection</span>
+              </button>
+            </div>
+
+            {/* Connection Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {connections.map((connection) => (
+                <motion.div
+                  key={connection.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-800/50 transition-all hover:border-blue-500 dark:hover:border-[#00E5FF] group"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Database className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">{connection.name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{connection.type}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {connection.status === 'connected' ? (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-500" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <p className="text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Host: </span>
+                      {connection.host}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Database: </span>
+                      {connection.database}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Last Connected: </span>
+                      {connection.lastConnected}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleTestConnection(connection.id)}
+                        disabled={isLoading}
+                        className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button
+                        onClick={() => openEditModal(connection)}
+                        className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(connection)}
+                        className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => openViewDetails(connection)}
+                      className="flex items-center space-x-1 text-sm text-primary hover:text-primary/90 transition-colors"
+                    >
+                      <span>View Details</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Add Connection Modal */}
@@ -256,7 +268,7 @@ const ManageDatabases = () => {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-[#111113] rounded-xl p-8 max-w-2xl w-full mx-4"
+            className="bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-8 max-w-2xl w-full mx-4 border border-gray-200/50 dark:border-gray-800/50"
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold">New Database Connection</h2>
@@ -414,8 +426,8 @@ const ManageDatabases = () => {
 
       {/* Edit Connection Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-6 w-full max-w-md border border-gray-200/50 dark:border-gray-800/50">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Edit Connection</h2>
               <button
@@ -521,8 +533,8 @@ const ManageDatabases = () => {
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-6 w-full max-w-md border border-gray-200/50 dark:border-gray-800/50">
             <h2 className="text-xl font-semibold mb-4">Delete Connection</h2>
             <p className="text-muted-foreground mb-6">
               Are you sure you want to delete the connection "{selectedConnection?.name}"? This action cannot be undone.
@@ -547,8 +559,8 @@ const ManageDatabases = () => {
 
       {/* View Details Modal */}
       {isViewDetailsOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-6 w-full max-w-md border border-gray-200/50 dark:border-gray-800/50">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Connection Details</h2>
               <button

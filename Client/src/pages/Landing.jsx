@@ -21,11 +21,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import LandingNavbar from '../components/layout/LandingNavbar'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { authAPI } from '../services/api'
+import { authAPI } from '../services/axios.api'
 import { useToast } from '../contexts/ToastContext'
 import { login } from '../store/authSlice'
 
-const AuthModal = ({ isLogin, show, onClose }) => {
+const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin }) => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
@@ -299,6 +299,7 @@ const AuthModal = ({ isLogin, show, onClose }) => {
                         onClick={() => {
                           setLoginForm({ email: '', password: '' })
                           onClose()
+                          onSwitchToRegister()
                         }}
                         className="text-blue-500 dark:text-[#00E5FF] hover:underline font-medium"
                       >
@@ -318,6 +319,7 @@ const AuthModal = ({ isLogin, show, onClose }) => {
                             confirmPassword: '',
                           })
                           onClose()
+                          onSwitchToLogin()
                         }}
                         className="text-blue-500 dark:text-[#00E5FF] hover:underline font-medium"
                       >
@@ -422,26 +424,36 @@ const Landing = () => {
   const testimonials = [
     {
       content: "LangSQL has revolutionized how we write and optimize our database queries. It's like having a SQL expert right at your fingertips.",
-      author: 'Alex Morgan',
-      role: 'Senior Developer @ Tech Co',
-      avatar: '/avatars/alex.jpg',
+      author: 'Pratik Pujari',
+      role: 'Senior Developer @ Google Inc.',
+      avatar: '/pratik.png',
     },
     {
       content: 'The AI-powered schema design feature saved us countless hours during our database restructuring project.',
-      author: 'Sarah Chen',
-      role: 'Lead Engineer @ StarbaseX',
-      avatar: '/avatars/sarah.jpg',
+      author: 'Jyotsna Kasibhotla',
+      role: 'Lead Engineer @ Amazon India',
+      avatar: '/jyotsna.png',
     },
     {
       content: 'Multi-dialect support makes it incredibly versatile. We use it across different projects with various database systems.',
-      author: 'James Wilson',
-      role: 'CTO @ DataFlow',
-      avatar: '/avatars/james.jpg',
+      author: 'Soham Narvankar',
+      role: 'CTO @ LangSQL',
+      avatar: '/soham.png',
     },
   ]
 
   const closeLoginModal = useCallback(() => setShowLoginModal(false), [])
   const closeRegisterModal = useCallback(() => setShowRegisterModal(false), [])
+
+  const switchToRegister = useCallback(() => {
+    setShowLoginModal(false)
+    setShowRegisterModal(true)
+  }, [])
+
+  const switchToLogin = useCallback(() => {
+    setShowRegisterModal(false)
+    setShowLoginModal(true)
+  }, [])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -1014,11 +1026,15 @@ const Landing = () => {
         isLogin={true}
         show={showLoginModal}
         onClose={closeLoginModal}
+        onSwitchToRegister={switchToRegister}
+        onSwitchToLogin={switchToLogin}
       />
       <AuthModal
         isLogin={false}
         show={showRegisterModal}
         onClose={closeRegisterModal}
+        onSwitchToRegister={switchToRegister}
+        onSwitchToLogin={switchToLogin}
       />
     </div>
   )

@@ -135,10 +135,15 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-[#0A0A0B] dark:via-[#0D0D0F] dark:to-[#111113] text-gray-900 dark:text-white p-6 transition-all">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-[#0A0A0B] dark:via-[#0D0D0F] dark:to-[#111113] text-gray-900 dark:text-white p-6 transition-all duration-300 ease-in-out">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="max-w-[1600px] mx-auto space-y-8"
+        >
           {/* Main Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             <Link
               to="/schema-generator"
               className="group block p-8 bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-800/50 hover:border-blue-500 dark:hover:border-[#00E5FF] transition-all"
@@ -204,10 +209,43 @@ const Dashboard = () => {
                 </div>
               </div>
             </Link>
+
+            <Link
+              to="/manage-databases"
+              className="group block p-8 bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-800/50 hover:border-blue-500 dark:hover:border-[#00E5FF] transition-all"
+            >
+              <div className="flex items-start space-x-4">
+                <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 group-hover:scale-110 group-hover:rotate-3 transition-all">
+                  <Database className="h-8 w-8 text-purple-500" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                    Database Manager
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Manage your database connections and monitor their status. Add, edit, or remove database connections.
+                  </p>
+                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <li className="flex items-center">
+                      <CheckCircle className="w-4 h-4 mr-2 text-emerald-500" />
+                      Connection management
+                    </li>
+                    <li className="flex items-center">
+                      <CheckCircle className="w-4 h-4 mr-2 text-emerald-500" />
+                      Status monitoring
+                    </li>
+                    <li className="flex items-center">
+                      <CheckCircle className="w-4 h-4 mr-2 text-emerald-500" />
+                      Secure credentials
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </Link>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {Object.entries(stats).map(([key, stat], index) => (
               <motion.div
                 key={key}
@@ -328,7 +366,7 @@ const Dashboard = () => {
               ))}
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       </div>
     </DashboardLayout>
   )

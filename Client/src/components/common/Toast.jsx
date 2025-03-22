@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
+import { useEffect } from 'react'
 
 const Toast = ({ message, type = 'info', onClose, duration = 5000 }) => {
   const icons = {
@@ -15,6 +16,14 @@ const Toast = ({ message, type = 'info', onClose, duration = 5000 }) => {
     warning: 'bg-yellow-50 text-yellow-800 border-yellow-200',
     info: 'bg-blue-50 text-blue-800 border-blue-200',
   }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose()
+    }, duration)
+
+    return () => clearTimeout(timer)
+  }, [duration, onClose])
 
   return (
     <AnimatePresence>

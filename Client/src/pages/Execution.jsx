@@ -72,23 +72,24 @@ const Execution = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gray-50 dark:bg-[#0A0A0B] text-gray-900 dark:text-white p-6 transition-colors">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-[#0A0A0B] dark:via-[#0D0D0F] dark:to-[#111113] text-gray-900 dark:text-white p-6 transition-all duration-300 ease-in-out">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-7xl mx-auto"
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="max-w-[1600px] mx-auto"
         >
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Query Execution</h1>
             <p className="text-gray-600 dark:text-gray-400">Execute SQL queries and analyze results</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Query Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-[#111113] rounded-lg p-6 border border-gray-200 dark:border-gray-800 transition-colors"
+              className="bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-800/50 transition-all"
             >
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -156,7 +157,7 @@ const Execution = () => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-[#111113] rounded-lg p-6 border border-gray-200 dark:border-gray-800 transition-colors"
+                className="bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-800/50 transition-all"
               >
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -215,49 +216,49 @@ const Execution = () => {
                 </div>
               </motion.div>
             )}
-
-            {/* History Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-[#111113] rounded-lg p-6 border border-gray-200 dark:border-gray-800 transition-colors"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold mb-1">Recent Queries</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Your execution history</p>
-                </div>
-                <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              </div>
-              <div className="space-y-4">
-                {[1, 2, 3].map((item) => (
-                  <div
-                    key={item}
-                    className="p-4 rounded-lg bg-white dark:bg-[#0A0A0B] border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Select Users Query</span>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">30 mins ago</span>
-                    </div>
-                    <pre className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                      SELECT * FROM users WHERE active = true;
-                    </pre>
-                    <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span className="flex items-center">
-                        <Clock className="w-3 h-3 mr-1" />
-                        0.123s
-                      </span>
-                      <span className="flex items-center">
-                        <Table className="w-3 h-3 mr-1" />
-                        100 rows
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
           </div>
+
+          {/* History Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mt-6 bg-white/50 dark:bg-[#111113]/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-800/50 transition-all"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-1">Recent Queries</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Your execution history</p>
+              </div>
+              <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="p-4 rounded-lg bg-white dark:bg-[#0A0A0B] border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Select Users Query</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">30 mins ago</span>
+                  </div>
+                  <pre className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                    SELECT * FROM users WHERE active = true;
+                  </pre>
+                  <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                    <span className="flex items-center">
+                      <Clock className="w-3 h-3 mr-1" />
+                      0.123s
+                    </span>
+                    <span className="flex items-center">
+                      <Table className="w-3 h-3 mr-1" />
+                      100 rows
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </motion.div>
       </div>
     </DashboardLayout>

@@ -10,6 +10,10 @@ import SchemaGenerator from './pages/SchemaGenerator'
 import Settings from './pages/Settings'
 import About from './pages/About'
 import ManageDatabases from './pages/ManageDatabases'
+import Features from './pages/Features'
+import Pricing from './pages/Pricing'
+import Contact from './pages/Contact'
+import DatabaseVisualization from './pages/DatabaseVisualization'
 
 // Components
 import Tutorial from './components/onboarding/Tutorial'
@@ -25,11 +29,19 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/" replace />
   }
 
-  // Show tutorial only after login and if not completed
+  // List of core feature routes that require tutorial completion
+  const coreFeatureRoutes = [
+    '/dashboard',
+    '/manage-databases',
+    '/query-builder',
+    '/schema-generator',
+    '/settings'
+  ]
+
+  // Show tutorial only for core feature routes if not completed
   if (!hasCompletedTutorial && 
       !localStorage.getItem('skipTutorial') && 
-      location.pathname !== '/tutorial' && 
-      location.pathname !== '/') {
+      coreFeatureRoutes.includes(location.pathname)) {
     return <Navigate to="/tutorial" replace />
   }
 
@@ -45,6 +57,9 @@ const App = () => {
         {/* Public Routes - Always accessible */}
         <Route path="/" element={<Landing />} />
         <Route path="/about" element={<About />} />
+        <Route path="/features" element={<Features />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/contact" element={<Contact />} />
 
         {/* Onboarding Routes - Only after authentication */}
         <Route
@@ -94,6 +109,14 @@ const App = () => {
           element={
             <ProtectedRoute>
               <SchemaGenerator />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/database-visualization"
+          element={
+            <ProtectedRoute>
+              <DatabaseVisualization />
             </ProtectedRoute>
           }
         />
