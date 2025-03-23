@@ -14,7 +14,9 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { completeTutorial, skipTutorial, setCurrentStep } from '../../redux/slices/onboardingSlice'
+import { updateUserProfile } from '../../redux/slices/authSlice'
 import { authAPI } from '../../services/axios.api'
+
 const Tutorial = () => {
   const navigate = useNavigate()
   const dispatch = useDispatch()
@@ -175,9 +177,10 @@ const Tutorial = () => {
   const handleSkip = async () => {
     setIsSkipLoading(true)
     try {
-      const response = await authAPI.completeTutorial() 
+      const response = await authAPI.completeTutorial()
       if (response.data.success === true) {
         dispatch(skipTutorial())
+        dispatch(updateUserProfile({ isTutorialCompleted: true }))
         navigate('/dashboard')
       }
     } catch (error) {
@@ -192,8 +195,9 @@ const Tutorial = () => {
       setIsCompleteLoading(true)
       try {
         const response = await authAPI.completeTutorial()
-        if (response.data.success === true) {  
+        if (response.data.success === true) {
           dispatch(completeTutorial())
+          dispatch(updateUserProfile({ isTutorialCompleted: true }))
           navigate('/dashboard')
         }
       } catch (error) {

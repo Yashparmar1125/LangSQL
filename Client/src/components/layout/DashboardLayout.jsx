@@ -277,8 +277,8 @@ const DashboardLayout = ({ children }) => {
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-[#00E5FF] flex items-center justify-center text-white font-medium">
-                    {user?.imageUrl ? (
-                      <img src={user.imageUrl} alt="User Avatar" className="w-full h-full rounded-full object-cover" />
+                    {user?.imageURL ? (
+                      <img src={user.imageURL} alt="User Avatar" className="w-full h-full rounded-full object-cover" />
                     ) : (
                       user?.name?.[0].toUpperCase() || 'U'
                     )}

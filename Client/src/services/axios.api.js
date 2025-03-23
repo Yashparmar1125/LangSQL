@@ -35,97 +35,26 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  // Real login function
-  login: async ({ email, password }) => {
-    try {
-      // Make API call to the login endpoint
-      const response = await api.post(
-        "/api/auth/login",
-        { email, password },
-        {
-          withCredentials: true, // Send cookies with the request
-        }
-      );
-
-      // Since we're using cookie-based auth, we don't need to handle tokens manually
-      // The cookie will be automatically handled by the browser
-      return { data: response.data };
-    } catch (error) {
-      // Handle errors without redirecting
-      const errorMessage =
-        error.response?.data?.message || "Invalid credentials";
-      throw {
-        response: {
-          status: error.response?.status,
-          data: { message: errorMessage },
-        },
-      };
-    }
-  },
-
-  // Real register function
-  register: async (userData) => {
-    try {
-      // Make API call to the register endpoint
-      const response = await api.post("/api/auth/register", userData, {
-        withCredentials: true, // Send cookies with the request
-      });
-
-      return { data: response.data };
-    } catch (error) {
-      throw {
-        response: {
-          data: {
-            message: error.response?.data?.message || "Error registering",
-          },
-        },
-      };
-    }
-  },
-
-  // Real logout function
-  logout: async () => {
-    try {
-      // Make API call to the logout endpoint
-      const response = await api.post(
-        "/api/auth/logout",
-        {},
-        {
-          withCredentials: true,
-        }
-      );
-      return { data: response.data };
-    } catch (error) {
-      throw {
-        response: {
-          data: {
-            message: error.response?.data?.message || "Error logging out",
-          },
-        },
-      };
-    }
-  },
-
-  completeTutorial: async () => {
-    try {
-      const response = await api.post("/api/auth/tutorial/complete", {
-        withCredentials: true,
-      });
-      return { data: response.data };
-    } catch (error) {
-      throw handleAPIError(error);
-    }
-  },
+  register: (data) => api.post("/api/auth/register", data),
+  login: (data) => api.post("/api/auth/login", data),
+  logout: () => api.post("/api/auth/logout"),
+  socialAuth: (provider, data) =>
+    api.post(`/api/auth/social/${provider}`, data),
+  completeTutorial: () => api.post("/api/auth/tutorial/complete"),
 
   // Get the current logged-in user
   getCurrentUser: async () => {
     try {
-      const response = await api.get("/api/auth/me", {
-        withCredentials: true, // Send cookies with the request
+      const response = await api.get("/api/auth/user", {
+        withCredentials: true, // Ensure cookies are sent with request
       });
-      return response.data;
+      return response.data; // Return the direct response data
     } catch (error) {
-      throw handleAPIError(error);
+      if (error.response?.status === 401) {
+        // If unauthorized, clear any stale state
+        return { success: false, message: "Session expired" };
+      }
+      throw error;
     }
   },
 
@@ -133,11 +62,11 @@ export const authAPI = {
   updateProfile: async (profileData) => {
     try {
       const response = await api.put("/api/auth/profile", profileData, {
-        withCredentials: true, // Send cookies with the request
+        withCredentials: true,
       });
       return response.data;
     } catch (error) {
-      throw handleAPIError(error);
+      throw error;
     }
   },
 
@@ -170,6 +99,11 @@ export const authAPI = {
       throw handleAPIError(error);
     }
   },
+
+  googleLogin: (data) => api.post("/api/auth/google/login", data),
+  googleRegister: (data) => api.post("/api/auth/google/register", data),
+  githubLogin: (data) => api.post("/api/auth/github/login", data),
+  githubRegister: (data) => api.post("/api/auth/github/register", data),
 };
 
 // SQL API

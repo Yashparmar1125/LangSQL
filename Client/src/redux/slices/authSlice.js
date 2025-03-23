@@ -4,9 +4,9 @@ import { createSlice } from "@reduxjs/toolkit";
 const initialState = {
   user: null, // No user initially
   user_id: null, // No user ID initially
-  token: null, // No token initially
   isAuthenticated: false, // User is not authenticated by default
-  isLoading: false,
+  isLoading: true, // Changed to true by default
+  isInitialized: false, // Add initialization state
   error: null,
   lastLogin: null,
   rememberMe: false,
@@ -16,6 +16,10 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
+    initializeAuth: (state) => {
+      state.isInitialized = true;
+      state.isLoading = false;
+    },
     loginStart: (state) => {
       state.isLoading = true;
       state.error = null;
@@ -24,25 +28,25 @@ const authSlice = createSlice({
       state.isLoading = false;
       state.isAuthenticated = true;
       state.user = action.payload.user;
-      state.user_id = action.payload.user.id; // Set the user_id
-      state.token = action.payload.token;
+      state.user_id = action.payload.user.id;
       state.lastLogin = new Date().toISOString();
       state.error = null;
+      state.isInitialized = true;
     },
     loginFailure: (state, action) => {
       state.isLoading = false;
       state.isAuthenticated = false;
+      state.user = null;
+      state.user_id = null;
       state.error = action.payload;
+      state.isInitialized = true;
     },
     logout: (state) => {
-      // Reset to initial state on logout
-      state.user = null;
-      state.user_id = null; // Reset user_id
-      state.token = null;
-      state.isAuthenticated = false;
-      state.isLoading = false;
-      state.error = null;
-      state.lastLogin = null;
+      return {
+        ...initialState,
+        isLoading: false,
+        isInitialized: true,
+      };
     },
     setRememberMe: (state, action) => {
       state.rememberMe = action.payload;
@@ -59,6 +63,7 @@ const authSlice = createSlice({
 });
 
 export const {
+  initializeAuth,
   loginStart,
   loginSuccess,
   loginFailure,

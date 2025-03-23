@@ -17,6 +17,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react'
+import { FaGoogle } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
 import LandingNavbar from '../components/layout/LandingNavbar'
 import { useNavigate } from 'react-router-dom'
@@ -26,6 +27,13 @@ import { useToast } from '../contexts/ToastContext'
 import { loginStart, loginSuccess, loginFailure } from '../redux/slices/authSlice'
 import { completeTutorial, resetOnboarding } from '../redux/slices/onboardingSlice'
 import { sendVerificationEmail, sendWelcomeEmail } from '../utils/emailjs'
+import { auth } from '../Firebase/firebase'
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  GithubAuthProvider,
+  getAdditionalUserInfo 
+} from 'firebase/auth'
 
 const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin }) => {
   const [showPassword, setShowPassword] = useState(false)
@@ -49,15 +57,18 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
   const { showSuccess, showError } = useToast()
   const { isDark } = useSelector((state) => state.theme)
 
-  // Reset states when switching between login/register or closing modal
+  // Reset states when modal is closed
   useEffect(() => {
-    setError('')
-    setShowVerification(false)
-    setVerificationCode('')
-    setResendTimeout(0)
-    setShowResendSuccess(false)
-    setVerificationData(null)
-  }, [isLogin, show])
+    if (!show) {
+      setShowPassword(false)
+      setError('')
+      setShowVerification(false)
+      setVerificationCode('')
+      setResendTimeout(0)
+      setShowResendSuccess(false)
+      setVerificationData(null)
+    }
+  }, [show])
 
   // Handle countdown timer
   useEffect(() => {
@@ -111,7 +122,7 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
       showError('Please enter verification code')
       return
     }
-
+    
     setIsVerifying(true)
     try {
       // Verify the code
@@ -136,8 +147,8 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
           dispatch(loginSuccess(registerResponse.data))
           dispatch(resetOnboarding())
           showSuccess('Registration successful!')
-          onClose()
-          navigate('/dashboard')
+      onClose()
+      navigate('/dashboard')
         } catch (emailError) {
           console.error('Failed to send welcome email:', emailError)
           // Still proceed with registration even if welcome email fails
@@ -245,204 +256,54 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
     }
   }
 
-  // Render verification screen if showVerification is true
-  if (showVerification) {
-    return (
-      <AnimatePresence mode="wait">
-        {show && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 overflow-y-auto"
-          >
-            <div className="min-h-screen px-4 text-center">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
-              />
+  const handleSocialAuth = async (provider) => {
+    setIsLoading(true)
+    setError('')
+    
+    try {
+      let authProvider
+      if (provider === 'google') {
+        authProvider = new GoogleAuthProvider()
+      } else if (provider === 'github') {
+        authProvider = new GithubAuthProvider()
+      }
 
-              <div className="fixed inset-0 flex items-center justify-center">
-                <motion.div
-                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                  transition={{ duration: 0.2 }}
-                  className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white/80 dark:bg-[#111113]/80 backdrop-blur-xl p-8 text-left shadow-2xl border border-gray-200/50 dark:border-gray-800/50"
-                >
-                  {/* Close button */}
-                  <motion.button
-                    whileHover={{ scale: 1.1, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                  </motion.button>
+      const result = await signInWithPopup(auth, authProvider)
+      const auth_token = await result.user.getIdToken()
 
-                  {/* Email icon with animation */}
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", duration: 0.6 }}
-                    className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/10 to-[#00E5FF]/10 flex items-center justify-center mb-6"
-                  >
-                    <motion.div
-                      animate={{ 
-                        y: [0, -5, 0],
-                        rotate: [0, -5, 5, 0]
-                      }}
-                      transition={{ 
-                        duration: 2,
-                        repeat: Infinity,
-                        repeatType: "reverse"
-                      }}
-                    >
-                      <Mail className="w-10 h-10 text-blue-500 dark:text-[#00E5FF]" />
-                    </motion.div>
-                  </motion.div>
-
-                  <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                      Check Your Email
-                    </h2>
-                    <p className="text-gray-600 dark:text-gray-400 text-lg">
-                      We've sent a verification code to
-                    </p>
-                    <p className="text-blue-500 dark:text-[#00E5FF] font-medium text-lg mt-1">
-                      {registerForm.email}
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleVerification} className="space-y-6">
-                    {error && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center gap-3"
-                      >
-                        <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
-                        <p className="text-sm text-red-600 dark:text-red-400">
-                          {error}
-                        </p>
-                      </motion.div>
-                    )}
-
-                    <div>
-                      <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
-                        Enter 6-digit verification code
-                      </label>
-                      <div className="relative group">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="one-time-code"
-                          value={verificationCode}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^0-9]/g, '')
-                            if (value.length <= 6) {
-                              setVerificationCode(value)
-                            }
-                          }}
-                          className="w-full px-4 py-3 bg-white dark:bg-[#0A0A0B] border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all text-center text-3xl tracking-[1em] font-mono"
-                          placeholder="______"
-                          maxLength={6}
-                        />
-                        <div className="absolute -bottom-6 left-0 right-0 flex justify-center gap-4">
-                          {[...Array(6)].map((_, i) => (
-                            <div
-                              key={i}
-                              className={`relative w-8 h-1 rounded-full transition-all duration-200 ${
-                                verificationCode.length > i
-                                  ? 'bg-blue-500 dark:bg-[#00E5FF] scale-100'
-                                  : 'bg-gray-200 dark:bg-gray-800 scale-95'
-                              }`}
-                            >
-                              {verificationCode.length === i && (
-                                <motion.div
-                                  layoutId="cursor"
-                                  className="absolute inset-0 bg-blue-500 dark:bg-[#00E5FF] rounded-full"
-                                  animate={{
-                                    opacity: [1, 0.5, 1],
-                                  }}
-                                  transition={{
-                                    duration: 1,
-                                    repeat: Infinity,
-                                  }}
-                                />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="mt-10 text-center space-y-2">
-                        {showResendSuccess && (
-                          <motion.p
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="text-sm text-green-600 dark:text-green-400"
-                          >
-                            ✓ New code sent successfully!
-                          </motion.p>
-                        )}
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Didn't receive the code?{' '}
-                          {resendTimeout > 0 ? (
-                            <span className="text-blue-500 dark:text-[#00E5FF]">
-                              Resend in {resendTimeout}s
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={handleResendCode}
-                              disabled={isLoading || resendTimeout > 0}
-                              className="text-blue-500 dark:text-[#00E5FF] hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Resend
-                            </button>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isVerifying || verificationCode.length !== 6}
-                      className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-[#00E5FF] dark:from-[#00E5FF] dark:to-blue-500 text-white dark:text-black font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 dark:shadow-[#00E5FF]/25 flex items-center justify-center space-x-2"
-                    >
-                      {isVerifying ? (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-5 h-5 border-2 border-white dark:border-black border-t-transparent rounded-full"
-                        />
-                      ) : (
-                        <>
-                          <span>Verify Email</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </form>
-                </motion.div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    )
+      // Use the unified social auth endpoint
+      const response = await authAPI.socialAuth(provider, { auth_token })
+      
+      if (response.data.success) {
+        dispatch(loginSuccess(response.data))
+        
+        // Handle onboarding state based on whether this is a new user
+        if (response.data.isNewUser) {
+          dispatch(resetOnboarding())
+          showSuccess('Registration successful!')
+        } else {
+          if (response.data.user.isTutorialCompleted) {
+            dispatch(completeTutorial())
+          }
+          showSuccess('Login successful!')
+        }
+        
+        onClose()
+        navigate('/dashboard')
+      }
+    } catch (error) {
+      console.error('Social auth error:', error)
+      const errorMessage = error.response?.data?.message || error.message || 'Authentication failed'
+      setError(errorMessage)
+      showError(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
+  // Render verification screen if showVerification is true
+  if (showVerification) {
   return (
-    <AnimatePresence mode="wait">
-      {show && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -451,24 +312,211 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
           className="fixed inset-0 z-50 overflow-y-auto"
         >
           <div className="min-h-screen px-4 text-center">
-            {/* Background overlay with blur */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50"
               onClick={onClose}
             />
 
-            {/* Modal container */}
             <div className="fixed inset-0 flex items-center justify-center">
               <motion.div
                 initial={{ scale: 0.95, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 20 }}
                 transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 30 }}
-                className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white/80 dark:bg-[#111113]/80 backdrop-blur-xl p-8 text-left shadow-2xl border border-gray-200/50 dark:border-gray-800/50 text-gray-900 dark:text-white"
+              className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white dark:bg-[#111113] p-8 text-left shadow-2xl border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white"
+            >
+              {/* Close button */}
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onClose}
+                className="absolute top-4 right-4 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </motion.button>
+
+              {/* Email icon with animation */}
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", duration: 0.6 }}
+                className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/10 to-[#00E5FF]/10 flex items-center justify-center mb-6"
+              >
+                <motion.div
+                  animate={{ 
+                    y: [0, -5, 0],
+                    rotate: [0, -5, 5, 0]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    repeatType: "reverse"
+                  }}
+                >
+                  <Mail className="w-10 h-10 text-blue-500 dark:text-[#00E5FF]" />
+                </motion.div>
+              </motion.div>
+
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                  Check Your Email
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 text-lg">
+                  We've sent a verification code to
+                </p>
+                <p className="text-blue-500 dark:text-[#00E5FF] font-medium text-lg mt-1">
+                  {registerForm.email}
+                </p>
+              </div>
+
+              <form onSubmit={handleVerification} className="space-y-6">
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center gap-3"
+                  >
+                    <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {error}
+                    </p>
+                  </motion.div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
+                    Enter 6-digit verification code
+                  </label>
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="one-time-code"
+                      value={verificationCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '')
+                        if (value.length <= 6) {
+                          setVerificationCode(value)
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-white dark:bg-[#0A0A0B] text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all duration-200 text-center text-3xl tracking-[1em] font-mono placeholder-gray-400 dark:placeholder-gray-600"
+                      placeholder="______"
+                      maxLength={6}
+                    />
+                    <div className="absolute -bottom-6 left-0 right-0 flex justify-center gap-4">
+                      {[...Array(6)].map((_, i) => (
+                        <div
+                          key={i}
+                          className={`relative w-8 h-1 rounded-full transition-all duration-200 ${
+                            verificationCode.length > i
+                              ? 'bg-blue-500 dark:bg-[#00E5FF] scale-100'
+                              : 'bg-gray-200 dark:bg-gray-800 scale-95'
+                          }`}
+                        >
+                          {verificationCode.length === i && (
+                            <motion.div
+                              layoutId="cursor"
+                              className="absolute inset-0 bg-blue-500 dark:bg-[#00E5FF] rounded-full"
+                              animate={{
+                                opacity: [1, 0.5, 1],
+                              }}
+                              transition={{
+                                duration: 1,
+                                repeat: Infinity,
+                              }}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-10 text-center space-y-2">
+                    {showResendSuccess && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-sm text-green-600 dark:text-green-400"
+                      >
+                        ✓ New code sent successfully!
+                      </motion.p>
+                    )}
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Didn't receive the code?{' '}
+                      {resendTimeout > 0 ? (
+                        <span className="text-blue-500 dark:text-[#00E5FF]">
+                          Resend in {resendTimeout}s
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleResendCode}
+                          disabled={isLoading || resendTimeout > 0}
+                          className="text-blue-500 dark:text-[#00E5FF] hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Resend
+                        </button>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isVerifying || verificationCode.length !== 6}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-[#00E5FF] dark:from-[#00E5FF] dark:to-blue-500 text-white dark:text-black font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 dark:shadow-[#00E5FF]/25 flex items-center justify-center space-x-2"
+                >
+                  {isVerifying ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-5 h-5 border-2 border-white dark:border-black border-t-transparent rounded-full"
+                    />
+                  ) : (
+                    <>
+                      <span>Verify Email</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 overflow-y-auto"
+    >
+      <div className="min-h-screen px-4 text-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/50"
+          onClick={onClose}
+        />
+
+        <div className="fixed inset-0 flex items-center justify-center">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 30 }}
+            className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white dark:bg-[#111113] p-8 text-left shadow-2xl border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white"
               >
                 {/* Close button with hover effect */}
                 <motion.button
@@ -519,18 +567,18 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                   onSubmit={isLogin ? handleLogin : handleRegister}
                   className="space-y-4"
                 >
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20"
-                    >
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        {error}
-                      </p>
-                    </motion.div>
-                  )}
-                  
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20"
+                >
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {error}
+                  </p>
+                </motion.div>
+              )}
+              
                   {!isLogin && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
@@ -546,7 +594,7 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                           onChange={(e) =>
                             setRegisterForm({ ...registerForm, name: e.target.value })
                           }
-                          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#0A0A0B] border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#0A0A0B] text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
                           placeholder="John Doe"
                         />
                       </div>
@@ -565,7 +613,7 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                             ? setLoginForm({ ...loginForm, email: e.target.value })
                             : setRegisterForm({ ...registerForm, email: e.target.value })
                         }
-                        className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#0A0A0B] border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#0A0A0B] text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
                         placeholder="you@example.com"
                       />
                     </div>
@@ -583,7 +631,7 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                             ? setLoginForm({ ...loginForm, password: e.target.value })
                             : setRegisterForm({ ...registerForm, password: e.target.value })
                         }
-                        className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-[#0A0A0B] border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all"
+                    className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-[#0A0A0B] text-gray-900 dark:text-white border-2 border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 dark:focus:border-[#00E5FF] focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-[#00E5FF]/20 transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
                         placeholder="••••••••"
                       />
                       <motion.button
@@ -607,7 +655,7 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                     whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-[#00E5FF] dark:from-[#00E5FF] dark:to-blue-500 text-white dark:text-black font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 dark:shadow-[#00E5FF]/25 flex items-center justify-center space-x-2"
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-[#00E5FF] dark:from-[#00E5FF] dark:to-blue-500 text-white dark:text-black font-medium rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 dark:shadow-[#00E5FF]/25 flex items-center justify-center space-x-2"
                   >
                     {isLoading ? (
                       <motion.div
@@ -637,7 +685,7 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                         onClick={() => {
                           setLoginForm({ email: '', password: '' })
                           onClose()
-                          onSwitchToRegister()
+                      onSwitchToRegister()
                         }}
                         className="text-blue-500 dark:text-[#00E5FF] hover:underline font-medium"
                       >
@@ -656,7 +704,7 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                             password: '',
                           })
                           onClose()
-                          onSwitchToLogin()
+                      onSwitchToLogin()
                         }}
                         className="text-blue-500 dark:text-[#00E5FF] hover:underline font-medium"
                       >
@@ -679,15 +727,17 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
                     
                     <div className="mt-6 grid grid-cols-3 gap-3">
                       {[
-                        { Icon: Github, label: 'GitHub' },
-                        { Icon: Twitter, label: 'Twitter' },
-                        { Icon: Linkedin, label: 'LinkedIn' }
-                      ].map(({ Icon, label }, index) => (
+                        { Icon: FaGoogle, label: 'Google', onClick: () => handleSocialAuth('google') },
+                        { Icon: Github, label: 'GitHub', onClick: () => handleSocialAuth('github') },
+                        { Icon: Linkedin, label: 'Linkedin', onClick: () => handleSocialAuth('github') }
+                      ].map(({ Icon, label, onClick }, index) => (
                         <motion.button
                           key={index}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="group flex items-center justify-center px-4 py-2.5 border-2 border-gray-200 dark:border-gray-800 rounded-xl hover:border-blue-500 dark:hover:border-[#00E5FF] hover:bg-blue-500/5 dark:hover:bg-[#00E5FF]/5 transition-all"
+                          onClick={onClick}
+                          disabled={isLoading}
+                          className="group flex items-center justify-center px-4 py-2.5 border-2 border-gray-200 dark:border-gray-800 rounded-xl hover:border-blue-500 dark:hover:border-[#00E5FF] hover:bg-blue-500/5 dark:hover:bg-[#00E5FF]/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Icon className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-500 dark:group-hover:text-[#00E5FF] transition-colors" />
                         </motion.button>
@@ -699,8 +749,6 @@ const AuthModal = ({ isLogin, show, onClose, onSwitchToRegister, onSwitchToLogin
             </div>
           </div>
         </motion.div>
-      )}
-    </AnimatePresence>
   )
 }
 
@@ -1305,20 +1353,28 @@ const Landing = () => {
       </footer>
 
       {/* Auth Modals */}
+      <AnimatePresence mode="wait">
+        {showLoginModal && (
       <AuthModal
+            key="login-modal"
         isLogin={true}
-        show={showLoginModal}
+            show={true}
         onClose={closeLoginModal}
-        onSwitchToRegister={switchToRegister}
-        onSwitchToLogin={switchToLogin}
+            onSwitchToRegister={switchToRegister}
+            onSwitchToLogin={switchToLogin}
       />
+        )}
+        {showRegisterModal && (
       <AuthModal
+            key="register-modal"
         isLogin={false}
-        show={showRegisterModal}
+            show={true}
         onClose={closeRegisterModal}
-        onSwitchToRegister={switchToRegister}
-        onSwitchToLogin={switchToLogin}
+            onSwitchToRegister={switchToRegister}
+            onSwitchToLogin={switchToLogin}
       />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

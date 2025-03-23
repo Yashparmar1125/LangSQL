@@ -10,13 +10,11 @@ import {
 //controllers imports
 import {
   register,
-  googleLogin,
   login,
   logout,
-  googleRegister,
-  githubRegister,
-  githubLogin,
+  socialAuth,
   completeTutorial,
+  currentUser,
 } from "../controllers/auth.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
@@ -24,12 +22,10 @@ const router = express.Router();
 
 //routes
 router.post("/register", validateRegistration, register);
-router.post("/google/login", googleLogin);
-router.post("/google/register", googleRegister);
-router.post("/github/register", githubRegister);
-router.post("/github/login", githubLogin);
 router.post("/login", validateLogin, login);
+router.post("/social/google", socialAuth);
+router.post("/social/github", socialAuth);
 router.post("/tutorial/complete", authMiddleware, completeTutorial);
 router.post("/logout", logout);
-
+router.get("/user", authMiddleware, currentUser);
 export default router;
