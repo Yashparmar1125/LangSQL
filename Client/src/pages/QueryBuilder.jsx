@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Play, 
   Copy, 
@@ -20,13 +20,36 @@ import {
   Zap,
   History,
   MenuIcon,
-  X
+  X,
+  Keyboard,
+  Info
 } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import { useSelector } from 'react-redux'
 import { useToast } from '../contexts/ToastContext'
 import { useNavigate } from 'react-router-dom'
+
+// Enhanced feedback for database connection
+const ConnectionStatus = ({ selectedDb }) => (
+  <AnimatePresence mode="wait">
+    <motion.div
+      key={selectedDb ? 'connected' : 'disconnected'}
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 10 }}
+      transition={{ duration: 0.2 }}
+      className={`px-4 py-1.5 rounded-lg text-sm flex items-center space-x-2 ${
+        selectedDb 
+          ? 'bg-emerald-500/10 text-emerald-500'
+          : 'bg-amber-500/10 text-amber-500'
+      }`}
+    >
+      <div className={`w-2 h-2 rounded-full ${selectedDb ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+      <span>{selectedDb ? `Connected to ${selectedDb}` : 'No database selected'}</span>
+    </motion.div>
+  </AnimatePresence>
+)
 
 const QueryBuilder = () => {
   const navigate = useNavigate()
@@ -96,6 +119,143 @@ const QueryBuilder = () => {
   const [suggestions, setSuggestions] = useState([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isHistoryOpen, setIsHistoryOpen] = useState(true)
+
+  // New state for keyboard shortcuts modal
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
+  const [isEditorReady, setIsEditorReady] = useState(false)
+  const [editorInstance, setEditorInstance] = useState(null)
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Only handle if not in input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case 'enter':
+            e.preventDefault()
+            if (output.trim() && selectedDb && !isExecuting) {
+              handleExecute()
+            }
+            break
+          case 's':
+            e.preventDefault()
+            if (output.trim()) {
+              handleSave()
+            }
+            break
+          case 'k':
+            e.preventDefault()
+            setShowKeyboardShortcuts(true)
+            break
+          default:
+            break
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [output, selectedDb, isExecuting])
+
+  // Editor ready handler
+  const handleEditorDidMount = (editor, monaco) => {
+    setIsEditorReady(true)
+    setEditorInstance(editor)
+
+    // Add custom SQL completions
+    monaco.languages.registerCompletionItemProvider('sql', {
+      provideCompletionItems: () => ({
+        suggestions: [
+          {
+            label: 'SELECT',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'SELECT ',
+          },
+          {
+            label: 'FROM',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'FROM ',
+          },
+          // Add more SQL keywords as needed
+        ],
+      }),
+    })
+  }
+
+  // Loading indicator component
+  const LoadingSpinner = () => (
+    <div className="flex items-center justify-center space-x-2">
+      <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm">Processing...</span>
+    </div>
+  )
+
+  // Keyboard shortcuts modal
+  const KeyboardShortcutsModal = () => (
+    <AnimatePresence>
+      {showKeyboardShortcuts && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowKeyboardShortcuts(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.95 }}
+            className="bg-background p-6 rounded-xl border border-border shadow-lg max-w-md w-full"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Keyboard Shortcuts</h2>
+              <button
+                onClick={() => setShowKeyboardShortcuts(false)}
+                className="p-2 hover:bg-accent rounded-lg transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-medium">General</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center justify-between p-2 bg-accent rounded-lg">
+                    <span>Execute Query</span>
+                    <kbd className="px-2 py-1 bg-background rounded-md">⌘/Ctrl + Enter</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-accent rounded-lg">
+                    <span>Save Query</span>
+                    <kbd className="px-2 py-1 bg-background rounded-md">⌘/Ctrl + S</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-accent rounded-lg">
+                    <span>Show Shortcuts</span>
+                    <kbd className="px-2 py-1 bg-background rounded-md">⌘/Ctrl + K</kbd>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-medium">Editor</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center justify-between p-2 bg-accent rounded-lg">
+                    <span>Format Query</span>
+                    <kbd className="px-2 py-1 bg-background rounded-md">Shift + Alt + F</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-accent rounded-lg">
+                    <span>Comment Line</span>
+                    <kbd className="px-2 py-1 bg-background rounded-md">⌘/Ctrl + /</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 
   const dialects = [
     { id: 'postgresql', name: 'PostgreSQL' },
@@ -402,6 +562,7 @@ const QueryBuilder = () => {
 
   return (
     <DashboardLayout>
+      <KeyboardShortcutsModal />
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-background text-foreground relative">
         {/* Mobile Sidebar Toggle */}
         <button
@@ -539,7 +700,23 @@ const QueryBuilder = () => {
         <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
           <div className="h-full overflow-y-auto pb-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]">
             <div className="max-w-[1200px] mx-auto px-4 lg:px-6 py-6 space-y-6">
-              {/* Mode Toggle */}
+              {/* Header with Connection Status */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
+                <h1 className="text-2xl font-bold">Query Builder</h1>
+                <div className="flex items-center space-x-4">
+                  <ConnectionStatus selectedDb={selectedDb} />
+                  <button
+                    onClick={() => setShowKeyboardShortcuts(true)}
+                    className="p-2 hover:bg-accent rounded-lg transition-all duration-200 flex items-center space-x-2"
+                    title="Show Keyboard Shortcuts"
+                  >
+                    <Keyboard className="w-4 h-4" />
+                    <span className="text-sm">Shortcuts</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mode Toggle with Enhanced Feedback */}
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -548,7 +725,7 @@ const QueryBuilder = () => {
                 <div className="flex items-center space-x-4 bg-background p-1.5 rounded-lg border border-border shadow-sm">
                   <button
                     onClick={() => setAiMode('natural')}
-                    className={`flex items-center space-x-2 px-6 py-3 rounded-lg flex-1 justify-center transition-all duration-200 ${
+                    className={`flex items-center space-x-2 px-6 py-3 rounded-lg flex-1 justify-center transition-all duration-200 relative ${
                       aiMode === 'natural'
                         ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'hover:bg-accent hover:shadow-sm'
@@ -556,10 +733,17 @@ const QueryBuilder = () => {
                   >
                     <Wand2 className="w-4 h-4" />
                     <span>Natural Language</span>
+                    {aiMode === 'natural' && (
+                      <motion.div
+                        layoutId="mode-indicator"
+                        className="absolute inset-0 bg-primary rounded-lg -z-10"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
                   </button>
                   <button
                     onClick={() => setAiMode('sql')}
-                    className={`flex items-center space-x-2 px-6 py-3 rounded-lg flex-1 justify-center transition-all duration-200 ${
+                    className={`flex items-center space-x-2 px-6 py-3 rounded-lg flex-1 justify-center transition-all duration-200 relative ${
                       aiMode === 'sql'
                         ? 'bg-primary text-primary-foreground shadow-sm'
                         : 'hover:bg-accent hover:shadow-sm'
@@ -567,6 +751,13 @@ const QueryBuilder = () => {
                   >
                     <Database className="w-4 h-4" />
                     <span>SQL</span>
+                    {aiMode === 'sql' && (
+                      <motion.div
+                        layoutId="mode-indicator"
+                        className="absolute inset-0 bg-primary rounded-lg -z-10"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
                   </button>
                 </div>
               </motion.div>
@@ -615,7 +806,7 @@ const QueryBuilder = () => {
                     className="w-full mt-4 px-5 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center justify-center space-x-3 transition-all duration-200 shadow-sm font-medium"
                   >
                     {isLoading ? (
-                      <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      <LoadingSpinner />
                     ) : (
                       <>
                         <Wand2 className="w-5 h-5" />
@@ -636,55 +827,65 @@ const QueryBuilder = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
                   <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-4 mb-4 lg:mb-0">
                     <h2 className="text-xl font-semibold tracking-tight">SQL Query</h2>
-                    {selectedDb && (
-                      <span className="px-4 py-1.5 bg-accent text-accent-foreground rounded-lg text-sm shadow-sm">
-                        Connected to: {selectedDb}
-                      </span>
-                    )}
+                    <ConnectionStatus selectedDb={selectedDb} />
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handleExplainQuery}
                       disabled={!output || isExplaining}
-                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 tooltip"
-                      title="Explain Query"
+                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <MessageSquare className="w-5 h-5" />
+                      <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
+                        Explain Query
+                      </span>
                     </button>
                     <button
                       onClick={handleOptimizeQuery}
                       disabled={!output || isOptimizing}
-                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 tooltip"
-                      title="Optimize Query"
+                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <Zap className="w-5 h-5" />
+                      <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
+                        Optimize Query
+                      </span>
                     </button>
                     <button
                       onClick={handleCopy}
                       disabled={!output}
-                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 tooltip"
-                      title="Copy to clipboard"
+                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <Copy className="w-5 h-5" />
+                      <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
+                        Copy to clipboard
+                      </span>
                     </button>
                     <button
                       onClick={handleSave}
                       disabled={!output}
-                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 tooltip"
-                      title="Save query"
+                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <Save className="w-5 h-5" />
+                      <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
+                        Save query
+                      </span>
                     </button>
                   </div>
                 </div>
 
                 <div className="relative min-h-[200px] max-h-[400px] rounded-xl overflow-hidden border border-border shadow-sm">
+                  {!isEditorReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+                      <LoadingSpinner />
+                    </div>
+                  )}
                   <Editor
                     height="200px"
                     defaultLanguage="sql"
                     value={output}
                     onChange={setOutput}
                     theme={isDark ? "vs-dark" : "light"}
+                    onMount={handleEditorDidMount}
                     options={{
                       minimap: { enabled: false },
                       fontSize: 14,
@@ -699,6 +900,8 @@ const QueryBuilder = () => {
                       renderLineHighlight: 'all',
                       smoothScrolling: true,
                       cursorSmoothCaretAnimation: true,
+                      quickSuggestions: true,
+                      suggestOnTriggerCharacters: true,
                       scrollbar: {
                         vertical: 'hidden',
                         horizontal: 'hidden',
@@ -716,13 +919,22 @@ const QueryBuilder = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex-1 mr-6 p-4 lg:p-5 bg-accent rounded-lg shadow-sm"
                     >
-                      <h3 className="text-sm font-medium mb-3">AI Suggestions:</h3>
+                      <div className="flex items-center space-x-2 mb-3">
+                        <h3 className="text-sm font-medium">AI Suggestions</h3>
+                        <Info className="w-4 h-4 text-muted-foreground" />
+                      </div>
                       <ul className="space-y-2.5">
                         {suggestions.map((suggestion, index) => (
-                          <li key={index} className="flex items-start space-x-2.5 text-sm text-muted-foreground">
+                          <motion.li
+                            key={index}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="flex items-start space-x-2.5 text-sm text-muted-foreground"
+                          >
                             <Sparkles className="w-4 h-4 text-primary mt-0.5" />
                             <span>{suggestion}</span>
-                          </li>
+                          </motion.li>
                         ))}
                       </ul>
                     </motion.div>
@@ -730,14 +942,17 @@ const QueryBuilder = () => {
                   <button
                     onClick={handleExecute}
                     disabled={isExecuting || !output.trim() || !selectedDb}
-                    className="px-6 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center space-x-3 transition-all duration-200 shadow-sm font-medium min-w-[150px] justify-center sticky bottom-4 lg:static"
+                    className="group px-6 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center space-x-3 transition-all duration-200 shadow-sm font-medium min-w-[150px] justify-center sticky bottom-4 lg:static relative"
                   >
                     {isExecuting ? (
-                      <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      <LoadingSpinner />
                     ) : (
                       <>
                         <Play className="w-5 h-5" />
                         <span>Execute</span>
+                        <kbd className="absolute right-2 top-2 text-xs bg-primary-foreground/20 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                          ⌘/Ctrl + ↵
+                        </kbd>
                       </>
                     )}
                   </button>

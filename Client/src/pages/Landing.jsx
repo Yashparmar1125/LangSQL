@@ -1327,7 +1327,7 @@ const Landing = () => {
                   </span>
                 </div>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  © 2024 LangSQL. All rights reserved.
+                  © 2025 LangSQL. All rights reserved.
                 </span>
               </div>
               <div className="flex items-center space-x-6">
