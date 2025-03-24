@@ -159,4 +159,71 @@ export const sqlAPI = {
   },
 };
 
+// Database Connections API
+export const databaseAPI = {
+  // Get all connections
+  getConnections: async (params = {}) => {
+    try {
+      const response = await api.get("/api/connections", { params });
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
+
+  // Test connection
+  testConnection: async (connectionData) => {
+    try {
+      const response = await api.post("/api/connections/test", connectionData);
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
+
+  // Create new connection
+  createConnection: async (connectionData) => {
+    try {
+      const response = await api.post("/api/connections/create", {
+        connectionData: connectionData,
+      });
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
+
+  // Update connection
+  updateConnection: async (id, connectionData) => {
+    try {
+      const response = await api.put(`/api/connections/update/${id}`, {
+        connectionData: connectionData,
+      });
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
+
+  // Delete connection
+  deleteConnection: async (id) => {
+    try {
+      const response = await api.delete(`/api/connections/delete/${id}`);
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
+
+  // Get connection details
+  getConnectionDetails: async (id) => {
+    try {
+      const response = await api.get(`/api/connections/${id}`);
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
+};
+
 export default api;

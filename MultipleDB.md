@@ -1,271 +1,277 @@
-To implement the scalable and maintainable approach for handling dynamic database connections in an **Express.js** API server project, we can follow a structured approach that utilizes **Factory Pattern**, **Dependency Injection**, and a database management system (e.g., Sequelize, Knex.js) for handling SQL dialects. Here's how you can organize and implement the solution within your project directory.
+To make the API more scalable for future database support, we can structure it in a way that allows adding new database types without modifying core logic.  
 
-### **Project Structure**
+### **Scalable Approach:**
+1. Use a **database handler registry** where each database type is registered dynamically.
+2. Create a **generic connection tester** that delegates to the registered handlers.
+3. Allow easy extension by just adding new handlers without modifying existing code.
 
-Here’s a recommended structure for the Express.js API server:
+---
 
+### **Updated Project Structure**
 ```
-langsql/
-│
-├── config/
-│   ├── dbConfig.js                # Configuration for database connection
-│   ├── dbConnectionFactory.js      # Factory class for database connection
-│
-├── models/
-│   ├── userModel.js                # Example ORM model (Sequelize)
-│
-├── services/
-│   ├── databaseService.js          # Service for query execution
-│
-├── routes/
-│   ├── queryRoute.js               # Route to handle user queries
-│
-├── controllers/
-│   ├── queryController.js          # Logic to handle user query requests
-│
-├── utils/
-│   ├── errorHandler.js             # Utility for error handling
-│
-├── app.js                          # Express app setup
-└── package.json
+/database-test-api
+│── /src
+│   ├── /controllers
+│   │   ├── connectionController.js
+│   ├── /middlewares
+│   │   ├── validationMiddleware.js
+│   ├── /routes
+│   │   ├── connectionRoutes.js
+│   ├── /databaseHandlers
+│   │   ├── mongodbHandler.js
+│   │   ├── postgresqlHandler.js
+│   │   ├── mysqlHandler.js
+│   │   ├── dbRegistry.js  # New
+│   ├── /utils
+│   │   ├── dbConnector.js
+│   ├── server.js
+│── package.json
+│── .env
 ```
 
 ---
 
-### **Step-by-Step Implementation**
+### **1. Create a Database Handler Registry (`dbRegistry.js`)**
+This registry keeps track of available database handlers, making it easy to add new databases in the future.
 
-#### 1. **Configure Database Connection**
-
-In the `config/dbConfig.js`, you'll define the connection configurations for different databases. You can use `Sequelize`, `Knex.js`, or any other database client here. The example below uses `Sequelize` for MySQL and PostgreSQL.
-
-**config/dbConfig.js**:
 ```javascript
-module.exports = {
-  mysql: {
-    host: 'localhost',
-    user: 'root',
-    password: 'password',
-    database: 'mysql_dbname',
-    dialect: 'mysql',
-  },
-  postgres: {
-    host: 'localhost',
-    user: 'postgres',
-    password: 'password',
-    database: 'postgres_dbname',
-    dialect: 'postgres',
-  },
-  // Add configurations for more DB types (MariaDB, SQLite, etc.)
+const dbHandlers = {};
+
+const registerDBHandler = (dbType, handler) => {
+    dbHandlers[dbType] = handler;
 };
+
+const getDBHandler = (dbType) => {
+    return dbHandlers[dbType] || null;
+};
+
+module.exports = { registerDBHandler, getDBHandler };
 ```
 
-#### 2. **Create a Database Connection Factory**
+---
 
-This factory will be responsible for dynamically creating database connections based on the user's selected database type. The factory will return instances of database classes that implement a common interface.
+### **2. Create Individual Handlers for Each DB**
+Each handler is responsible for testing the connection for a specific database.
 
-**config/dbConnectionFactory.js**:
+#### **MongoDB Handler (`mongodbHandler.js`)**
 ```javascript
-const { Sequelize } = require('sequelize');
-const dbConfig = require('./dbConfig');
+const mongoose = require('mongoose');
 
-class Database {
-  constructor() {
-    if (this.constructor === Database) {
-      throw new Error('Abstract class "Database" cannot be instantiated directly.');
-    }
-  }
-
-  async connect() {
-    throw new Error('Method "connect" must be implemented');
-  }
-
-  async executeQuery(query) {
-    throw new Error('Method "executeQuery" must be implemented');
-  }
-}
-
-class MySQLDatabase extends Database {
-  constructor() {
-    super();
-    this.connection = new Sequelize(dbConfig.mysql);
-  }
-
-  async connect() {
+const testMongoDBConnection = async ({ host, port, username, password, database }) => {
     try {
-      await this.connection.authenticate();
-      console.log('MySQL Connection established');
+        const uri = `mongodb://${username}:${password}@${host}:${port}/${database}`;
+        await mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+        await mongoose.connection.close();
+        return { success: true, message: 'MongoDB connection successful' };
     } catch (error) {
-      console.error('MySQL Connection failed:', error);
+        return { success: false, message: error.message };
     }
-  }
+};
 
-  async executeQuery(query) {
-    try {
-      return await this.connection.query(query);
-    } catch (error) {
-      throw new Error('Error executing query:', error);
-    }
-  }
-}
-
-class PostgresDatabase extends Database {
-  constructor() {
-    super();
-    this.connection = new Sequelize(dbConfig.postgres);
-  }
-
-  async connect() {
-    try {
-      await this.connection.authenticate();
-      console.log('Postgres Connection established');
-    } catch (error) {
-      console.error('Postgres Connection failed:', error);
-    }
-  }
-
-  async executeQuery(query) {
-    try {
-      return await this.connection.query(query);
-    } catch (error) {
-      throw new Error('Error executing query:', error);
-    }
-  }
-}
-
-// Database Factory Class
-class DatabaseFactory {
-  static getDatabaseConnection(dbType) {
-    switch (dbType) {
-      case 'mysql':
-        return new MySQLDatabase();
-      case 'postgres':
-        return new PostgresDatabase();
-      // Add more cases for other databases (e.g., MariaDB, SQLite)
-      default:
-        throw new Error('Unsupported database type');
-    }
-  }
-}
-
-module.exports = DatabaseFactory;
+module.exports = testMongoDBConnection;
 ```
 
-#### 3. **Create a Service to Handle Database Operations**
+---
 
-The `databaseService.js` will act as a middle layer between the controller and the database. This service will be responsible for receiving queries from the controller, executing them via the appropriate database connection, and returning the result.
-
-**services/databaseService.js**:
+#### **PostgreSQL Handler (`postgresqlHandler.js`)**
 ```javascript
-const DatabaseFactory = require('../config/dbConnectionFactory');
+const { Client } = require('pg');
 
-class DatabaseService {
-  constructor(dbType) {
-    this.dbType = dbType;
-    this.database = DatabaseFactory.getDatabaseConnection(dbType);
-  }
-
-  async executeQuery(query) {
+const testPostgreSQLConnection = async ({ host, port, username, password, database }) => {
     try {
-      await this.database.connect();
-      const result = await this.database.executeQuery(query);
-      return result;
+        const client = new Client({ host, port, user: username, password, database });
+        await client.connect();
+        await client.end();
+        return { success: true, message: 'PostgreSQL connection successful' };
     } catch (error) {
-      throw new Error('Error executing query in database service:', error);
+        return { success: false, message: error.message };
     }
-  }
-}
+};
 
-module.exports = DatabaseService;
+module.exports = testPostgreSQLConnection;
 ```
 
-#### 4. **Create a Controller for Handling API Logic**
+---
 
-In the `queryController.js`, you will handle incoming API requests. This controller will interact with the `DatabaseService` to execute the user’s SQL queries and send the response.
-
-**controllers/queryController.js**:
+#### **MySQL Handler (`mysqlHandler.js`)**
 ```javascript
-const DatabaseService = require('../services/databaseService');
+const mysql = require('mysql2/promise');
 
-class QueryController {
-  static async executeQuery(req, res) {
-    const { dbType, query } = req.body;  // dbType (e.g., 'mysql', 'postgres') and query are provided by the user
-
-    if (!dbType || !query) {
-      return res.status(400).json({ error: 'Database type and query are required' });
-    }
-
+const testMySQLConnection = async ({ host, port, username, password, database }) => {
     try {
-      const dbService = new DatabaseService(dbType);
-      const result = await dbService.executeQuery(query);
-      return res.json(result);
+        const connection = await mysql.createConnection({ host, port, user: username, password, database });
+        await connection.end();
+        return { success: true, message: 'MySQL connection successful' };
     } catch (error) {
-      return res.status(500).json({ error: error.message });
+        return { success: false, message: error.message };
     }
-  }
-}
+};
 
-module.exports = QueryController;
+module.exports = testMySQLConnection;
 ```
 
-#### 5. **Define Routes for API**
+---
 
-Define the routes in `queryRoute.js` to handle API requests. Here, we’ll add a route for executing queries.
+### **3. Modify `dbConnector.js` to Use Registry**
+Instead of hardcoding DB types, we now dynamically retrieve the handler from the registry.
 
-**routes/queryRoute.js**:
+```javascript
+const { getDBHandler } = require('../databaseHandlers/dbRegistry');
+
+const testDatabaseConnection = async (dbConfig) => {
+    const handler = getDBHandler(dbConfig.dbType);
+    if (!handler) {
+        return { success: false, message: `Database type '${dbConfig.dbType}' is not supported.` };
+    }
+    return await handler(dbConfig);
+};
+
+module.exports = { testDatabaseConnection };
+```
+
+---
+
+### **4. Register Database Handlers in `server.js`**
+Before the server starts, we register all supported database handlers.
+
 ```javascript
 const express = require('express');
-const router = express.Router();
-const QueryController = require('../controllers/queryController');
+const dotenv = require('dotenv');
+const connectionRoutes = require('./routes/connectionRoutes');
+const { registerDBHandler } = require('./databaseHandlers/dbRegistry');
 
-router.post('/execute-query', QueryController.executeQuery);
+// Import database handlers
+const testMongoDBConnection = require('./databaseHandlers/mongodbHandler');
+const testPostgreSQLConnection = require('./databaseHandlers/postgresqlHandler');
+const testMySQLConnection = require('./databaseHandlers/mysqlHandler');
+
+dotenv.config();
+const app = express();
+
+app.use(express.json());
+app.use('/connection', connectionRoutes);
+
+// Register available database handlers
+registerDBHandler('mongodb', testMongoDBConnection);
+registerDBHandler('postgresql', testPostgreSQLConnection);
+registerDBHandler('mysql', testMySQLConnection);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+```
+
+---
+
+### **5. Controller (`connectionController.js`)**
+```javascript
+const { testDatabaseConnection } = require('../utils/dbConnector');
+
+const testConnection = async (req, res) => {
+    const result = await testDatabaseConnection(req.body);
+    return res.status(result.success ? 200 : 500).json(result);
+};
+
+module.exports = { testConnection };
+```
+
+---
+
+### **6. Middleware for Validation (`validationMiddleware.js`)**
+Instead of hardcoding allowed DB types, we dynamically check from `dbRegistry`.
+
+```javascript
+const yup = require('yup');
+const { getDBHandler } = require('../databaseHandlers/dbRegistry');
+
+const validateConnectionDetails = async (req, res, next) => {
+    const allowedDBTypes = Object.keys(require('../databaseHandlers/dbRegistry').dbHandlers);
+
+    const connectionSchema = yup.object().shape({
+        dbType: yup.string().oneOf(allowedDBTypes).required(),
+        host: yup.string().required(),
+        port: yup.number().positive().required(),
+        username: yup.string().required(),
+        password: yup.string().required(),
+        database: yup.string().required()
+    });
+
+    try {
+        await connectionSchema.validate(req.body);
+        next();
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+};
+
+module.exports = validateConnectionDetails;
+```
+
+---
+
+### **7. Routes (`connectionRoutes.js`)**
+```javascript
+const express = require('express');
+const { testConnection } = require('../controllers/connectionController');
+const validateConnectionDetails = require('../middlewares/validationMiddleware');
+
+const router = express.Router();
+
+router.post('/test', validateConnectionDetails, testConnection);
 
 module.exports = router;
 ```
 
-#### 6. **Set Up Express Application**
+---
 
-Finally, configure the main Express app (`app.js`) and link all the routes.
+### **8. Adding a New Database**
+Now, adding a new database is simple:
+1. Create a new handler in `/databaseHandlers/yourDbHandler.js`
+2. Register it in `server.js` using:
+   ```javascript
+   registerDBHandler('newdb', testNewDBConnection);
+   ```
 
-**app.js**:
-```javascript
-const express = require('express');
-const bodyParser = require('body-parser');
-const queryRoute = require('./routes/queryRoute');
+---
 
-const app = express();
-
-// Middleware to parse JSON request body
-app.use(bodyParser.json());
-
-// Routes
-app.use('/api', queryRoute);
-
-// Error Handling Middleware
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).send({ error: err.message });
-});
-
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+### **9. Example Request**
+#### **POST `/connection/test`**
+```json
+{
+    "dbType": "postgresql",
+    "host": "localhost",
+    "port": 5432,
+    "username": "your_username",
+    "password": "your_password",
+    "database": "testdb"
+}
 ```
 
 ---
 
-### **How It Works**
+### **10. Expected Responses**
+#### **Supported DB Type**
+```json
+{
+    "success": true,
+    "message": "PostgreSQL connection successful"
+}
+```
 
-1. **User Request**: When a user sends a POST request to `/api/execute-query` with the `dbType` (e.g., `mysql`, `postgres`) and `query` (SQL query string), the `QueryController` handles the request.
-2. **Service Layer**: The controller passes the request data to the `DatabaseService`, which in turn uses the `DatabaseFactory` to get the appropriate database connection (e.g., `MySQLDatabase` or `PostgresDatabase`).
-3. **Database Execution**: The database connection executes the query, and the result is sent back to the client.
+#### **Unsupported DB Type**
+```json
+{
+    "success": false,
+    "message": "Database type 'oracle' is not supported."
+}
+```
 
 ---
 
-### **Advantages of This Approach**
-- **Extensible**: You can easily add new database types by creating new classes that extend the `Database` class and updating the factory method.
-- **Separation of Concerns**: The controller handles only the request/response logic, the service layer handles database operations, and the factory class manages database creation. This modularity makes the code easier to maintain.
-- **Scalable**: New databases or features can be added without significant changes to the core logic, following clean design principles like **DRY** (Don’t Repeat Yourself) and **SOLID**.
+### **Final Thoughts**
+- **Scalable**: Just add a new handler file & register it.
+- **Modular**: Each DB type has its own logic file.
+- **Validation**: Automatically updates based on registered handlers.
 
-This approach allows for **dynamic switching** between multiple database types while maintaining a clean, modular architecture that's easy to scale as the number of supported databases grows.
+This structure ensures long-term maintainability. Let me know if you need further enhancements!

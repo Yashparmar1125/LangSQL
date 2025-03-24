@@ -1,38 +1,9 @@
 import mongoose from "mongoose";
 
 const connectionSchema = new mongoose.Schema({
-  name: {
+  connectionData: {
     type: String,
     required: true,
-  },
-  host: {
-    type: String,
-    required: true,
-  },
-  port: {
-    type: Number,
-    required: true,
-  },
-  username: {
-    type: String,
-    required: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
-  database: {
-    type: String,
-    required: true,
-  },
-  dialect: {
-    type: String,
-    required: true,
-  },
-  ssltsl: {
-    type: Boolean,
-    required: true,
-    default: false,
   },
   createdAt: {
     type: Date,
@@ -52,6 +23,10 @@ const connectionSchema = new mongoose.Schema({
     required: true,
     enum: ["connected", "disconnected", "connecting", "disconnecting"],
     default: "disconnected",
+  },
+  lastConnected: {
+    type: Date,
+    default: null,
   },
 });
 

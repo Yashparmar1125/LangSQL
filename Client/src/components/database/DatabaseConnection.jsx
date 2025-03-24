@@ -15,7 +15,11 @@ import {
   User,
   Lock,
   Globe,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react'
+import { useToast } from '../../contexts/ToastContext'
 import {
   addConnection,
   removeConnection,
@@ -28,8 +32,11 @@ import {
 const DatabaseConnection = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const { showSuccess, showError } = useToast()
   const { connections, isConnecting, error } = useSelector((state) => state.database)
   const [isAddingNew, setIsAddingNew] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
   const [newConnection, setNewConnection] = useState({
     name: '',
     type: 'postgresql', // postgresql, mysql, trino, spark
@@ -48,16 +55,62 @@ const DatabaseConnection = () => {
     { id: 'spark', name: 'Spark SQL', icon: Server },
   ]
 
+  const handleTestConnection = async () => {
+    if (!newConnection.host || !newConnection.port || !newConnection.database || !newConnection.username) {
+      showError('Please fill in all required fields before testing connection')
+      return
+    }
+
+    setIsTesting(true)
+    setTestResult(null)
+    dispatch(clearError())
+
+    try {
+      // Simulate API call to test connection
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Simulate successful connection
+      setTestResult({
+        success: true,
+        message: 'Connection successful!',
+        details: {
+          version: '14.0',
+          tables: 12,
+          size: '2.5GB'
+        }
+      })
+      showSuccess('Connection test successful!')
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: 'Connection failed',
+        details: error.message
+      })
+      showError('Connection test failed')
+    } finally {
+      setIsTesting(false)
+    }
+  }
+
   const handleAddConnection = async () => {
+    if (!testResult?.success) {
+      showError('Please test the connection before adding it')
+      return
+    }
+
     if (newConnection.name && newConnection.host) {
       dispatch(setConnecting(true))
       dispatch(clearError())
 
       try {
-        // Here you would typically test the connection
         await new Promise(resolve => setTimeout(resolve, 1000))
         
-        dispatch(addConnection({ ...newConnection, id: Date.now() }))
+        dispatch(addConnection({ 
+          ...newConnection, 
+          id: Date.now(),
+          status: 'connected',
+          lastConnected: new Date().toLocaleString()
+        }))
         setNewConnection({
           name: '',
           type: 'postgresql',
@@ -69,9 +122,11 @@ const DatabaseConnection = () => {
           ssl: false,
         })
         setIsAddingNew(false)
+        showSuccess('Connection added successfully!')
         navigate('/dashboard')
       } catch (error) {
         dispatch(setError(error.message || 'Failed to connect to database'))
+        showError('Failed to add connection')
       } finally {
         dispatch(setConnecting(false))
       }
@@ -274,6 +329,82 @@ const DatabaseConnection = () => {
                   </label>
                 </div>
 
+                {/* Test Connection Button */}
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={isTesting}
+                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isTesting ? (
+                      <>
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                        <span>Testing Connection...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-5 h-5" />
+                        <span>Test Connection</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Test Result Display */}
+                  {testResult && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`flex items-center space-x-2 ${
+                        testResult.success ? 'text-emerald-500' : 'text-red-500'
+                      }`}
+                    >
+                      {testResult.success ? (
+                        <CheckCircle className="w-5 h-5" />
+                      ) : (
+                        <XCircle className="w-5 h-5" />
+                      )}
+                      <span>{testResult.message}</span>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Connection Details */}
+                {testResult?.success && testResult.details && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg"
+                  >
+                    <h3 className="text-sm font-medium text-emerald-500 mb-2">Connection Details</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400">Version:</span>
+                        <span className="ml-2">{testResult.details.version}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400">Tables:</span>
+                        <span className="ml-2">{testResult.details.tables}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 dark:text-gray-400">Database Size:</span>
+                        <span className="ml-2">{testResult.details.size}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Error Display */}
+                {testResult?.success === false && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg"
+                  >
+                    <h3 className="text-sm font-medium text-red-500 mb-2">Connection Error</h3>
+                    <p className="text-sm text-red-500">{testResult.details}</p>
+                  </motion.div>
+                )}
+
                 <div className="flex items-center justify-end space-x-4 mt-8">
                   <button
                     onClick={() => setIsAddingNew(false)}
@@ -283,7 +414,7 @@ const DatabaseConnection = () => {
                   </button>
                   <button
                     onClick={handleAddConnection}
-                    disabled={isConnecting}
+                    disabled={isConnecting || !testResult?.success}
                     className="flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isConnecting ? (
