@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 load_dotenv()
 
@@ -37,10 +38,8 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    'django.contrib.contenttypes',
     'rest_framework',
     'RESTAPI',
     'corsheaders',
@@ -81,18 +80,37 @@ WSGI_APPLICATION = 'LangSQL.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'djongo',
-        'NAME': 'LangSQL',
-        'CLIENT':{
-            'host': os.getenv('DB_HOST'),
-            'name': 'LangSQL',
-            'authmechanism': 'SCRAM-SHA-1',
-            
-        }
-    }
+MONGO_URI = os.getenv('MONGO_URI')
+MONGO_CLIENT = None  # Initialize as None
+
+def get_mongo_client():
+    global MONGO_CLIENT
+    if MONGO_CLIENT is None:
+        MONGO_CLIENT = MongoClient(MONGO_URI)
+    return MONGO_CLIENT
+
+MONGO_DB = get_mongo_client()['LangSQL']
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'errors.log'),
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
 }
+
 
 
 # Password validation
