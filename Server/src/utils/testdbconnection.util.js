@@ -2,8 +2,6 @@ import { getDBHandler } from "../databaseHandlers/dbRegistry.js";
 
 const testDatabaseConnection = async (dbConfig) => {
   const handler = getDBHandler(dbConfig.dbType);
-  console.log(handler);
-  console.log(typeof handler);
   if (!handler) {
     return {
       success: false,

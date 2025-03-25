@@ -1,15 +1,34 @@
 import testDatabaseConnection from "../utils/testdbconnection.util.js";
+import { decryptData } from "../services/aes.encryption.js";
+import validateConnectionDetails from "../middlewares/validation.middleware.js";
 
 const testConnection = async (req, res) => {
   try {
-    const result = await testDatabaseConnection(req.body);
-    return res.status(result.success ? 200 : 500).json({
-    message: "success",
-    success: true,
+    const userId = req.user.userId;
+    const decryptedData = decryptData(req.body.connectionData, userId);
+    const dbDetails = {
+      host: decryptedData.host,
+      username: decryptedData.username,
+      password: decryptedData.password,
+      database: decryptedData.database,
+      port: Number(decryptedData.port),
+      dbType: decryptedData.type,
+    };
+
+    const result = await testDatabaseConnection(dbDetails);
+    if (!result.success) {
+      return res.status(500).json({
+        message: result.message,
+        success: false,
+      });
+    }
+    return res.status(200).json({
+      message: result.message,
+      success: true,
     });
   } catch (error) {
     console.log("error:", error);
-    res.status(500).json({ message: "Connection Unsucess",sucess: false });
+    res.status(500).json({ message: "Connection Unsucess", sucess: false });
   }
 };
 
