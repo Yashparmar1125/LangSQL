@@ -18,7 +18,7 @@ import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import extractorRoutes from "./routes/extractor.routes.js";
 import connectionRoutes from "./routes/connection.routes.js";
-import executeRoutes from "./routes/execute.routes.js"
+import executeRoutes from "./routes/execute.routes.js";
 
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -30,10 +30,16 @@ import testSparkConnection from "./databaseHandlers/spark.handler.js";
 import testTrinoConnection from "./databaseHandlers/trino.handler.js";
 import testConnection from "./controllers/test.controller.js";
 
+import mySqlExecution from "./workers/mysql.worker.js";
+import postgreSQLExecution from "./workers/postgresql.worker.js";
+
 import {
   dbHandlers,
   registerDBHandler,
 } from "./databaseHandlers/dbRegistry.js";
+
+import { dbWorkers, registerDBWorker } from "./workers/workerRegistry.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const serviceAccount = JSON.parse(
@@ -91,12 +97,17 @@ registerDBHandler("mysql", testMySQLConnection);
 registerDBHandler("trino", testTrinoConnection);
 registerDBHandler("spark", testSparkConnection);
 
+registerDBWorker("mysql", mySqlExecution);
+registerDBWorker("postgresql", postgreSQLExecution);
+
+
+
 //routes
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/extractor", extractorRoutes);
 app.use("/api/connections", connectionRoutes);
-app.use("/api/execute",executeRoutes)
+app.use("/api/execute", executeRoutes);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);

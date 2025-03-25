@@ -10,7 +10,6 @@ const testDatabaseConnection = async (dbConfig) => {
       message: `Database type '${dbConfig.dbType}' is not supported.`,
     };
   }
-  const dbType = dbConfig.dbType;
   return await handler(dbConfig);
 };
 

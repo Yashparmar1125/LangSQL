@@ -1,33 +1,15 @@
-import postgreSQLExecution from "../workers/postgresql.worker.js";
-import mySQLExecution from "../workers/mysql.worker.js";
-import sparkExecution from "../workers/spark.worker.js";
-import trinoExecution from "../workers/trino.worker.js";
+import executeQuery from "../utils/worker.util.js";
 
-export const executeQuery = async (req, res) => {
-    const { type, host, port, username, password, database, query, url } = req.body;
-
-    try {
-        let result;
-        
-        switch (type) {
-            case "postgres":
-                result = await postgreSQLExecution({ host, port, username, password, database, query });
-                break;
-            case "mysql":
-                result = await mySQLExecution({ host, port, username, password, database, query });
-                break;
-            case "spark":
-                result = await sparkExecution({ url, user: username, password });
-                break;
-            case "trino":
-                result = await trinoExecution({ host, port, username, password, database, query });
-                break;
-            default:
-                return res.status(400).json({ success: false, message: "Invalid database type" });
-        }
-
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+export const executeDBQuery = async (req, res) => {
+  try {
+    console.log(req.body);
+    const result = await executeQuery(req.body);
+    return res.status(result.success ? 200 : 500).json({
+      message: "success",
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
