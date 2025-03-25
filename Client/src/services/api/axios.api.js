@@ -151,7 +151,16 @@ export const sqlAPI = {
 
   getQueryHistory: async () => {
     try {
-      const response = await api.get("/sql/history");
+      const response = await api.get("/api/history/query");
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
+
+  getPromptHistory: async () => {
+    try {
+      const response = await api.get("/api/history/prompt");
       return response.data;
     } catch (error) {
       throw handleAPIError(error);
@@ -174,7 +183,9 @@ export const databaseAPI = {
   // Test connection
   testConnection: async (connectionData) => {
     try {
-      const response = await api.post("/api/connections/test", connectionData);
+      const response = await api.post("/api/connections/test", {
+        connectionData: connectionData,
+      });
       return response.data;
     } catch (error) {
       throw handleAPIError(error);
@@ -218,7 +229,7 @@ export const databaseAPI = {
   // Get connection details
   getConnectionDetails: async (id) => {
     try {
-      const response = await api.get(`/api/connections/${id}`);
+      const response = await api.get(`/api/connections/metadata/${id}`);
       return response.data;
     } catch (error) {
       throw handleAPIError(error);
