@@ -16,9 +16,10 @@ import connectDB from "./utils/connection.util.js";
 //routes imports
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
-
 import extractorRoutes from "./routes/extractor.routes.js";
 import connectionRoutes from "./routes/connection.routes.js";
+
+import executeRoutes from "./routes/execute.routes.js"
 import historyRoutes from "./routes/history.routes.js";
 
 import { readFileSync } from "fs";
@@ -97,6 +98,7 @@ app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/extractor", extractorRoutes);
 app.use("/api/connections", connectionRoutes);
+app.use("/api/execute",executeRoutes)
 app.use("/api/history", historyRoutes);
 
 app.listen(PORT, "0.0.0.0", () => {
