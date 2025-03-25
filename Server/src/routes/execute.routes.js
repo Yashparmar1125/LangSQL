@@ -1,8 +1,8 @@
 import express from "express";
-import { executeQuery } from "../controllers/execute.controller.js";
+import { executeDBQuery } from "../controllers/execute.controller.js";
 
 const router = express.Router();
 
-router.post("/execute", executeQuery);
+router.post("/", executeDBQuery);
 
 export default router;
