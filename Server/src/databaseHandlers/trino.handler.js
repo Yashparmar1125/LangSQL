@@ -1,9 +1,9 @@
-import trinoClient from "trino-client"; 
+import Trino from "trino-client"; 
 
 
 async function testTrinoConnection({ host, port, user, catalog, schema }) {
     try {
-        const client = new Client({
+        const client = new Trino.Client({
             host,
             port,
             user,

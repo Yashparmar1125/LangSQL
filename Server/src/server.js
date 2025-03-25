@@ -16,9 +16,10 @@ import connectDB from "./utils/connection.util.js";
 //routes imports
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
-
 import extractorRoutes from "./routes/extractor.routes.js";
 import connectionRoutes from "./routes/connection.routes.js";
+import executeRoutes from "./routes/execute.routes.js"
+
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -95,6 +96,7 @@ app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/extractor", extractorRoutes);
 app.use("/api/connections", connectionRoutes);
+app.use("/api/execute",executeRoutes)
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
