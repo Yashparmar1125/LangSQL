@@ -33,13 +33,13 @@ const queryHistorySchema = new mongoose.Schema({
     default: {},
   },
   responseTime: {
-    type: Number,
+    type: String,
   },
   rows: {
-    type: Number,
+    type: String,
   },
   affectedRows: {
-    type: Number,
+    type: String,
   },
 });
 

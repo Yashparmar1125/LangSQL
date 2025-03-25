@@ -19,17 +19,31 @@ const mySqlExecution = async ({
     });
 
     console.log("Connected to MySQL");
+    const startTime = Date.now();
     const [rows] = await connection.execute(query);
+    const executionTime = Date.now() - startTime;
 
     console.log("Query Result:", rows);
 
     return {
       success: true,
-      message: "MySQL connection successful",
-      data: rows,
+      message: "Query executed successfully",
+      data: {
+        results: rows,
+        metadata: {
+          rowCount: rows.length,
+          executionTime: `${executionTime}ms`,
+          affectedRows: rows.affectedRows || 0,
+          columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+        },
+      },
     };
   } catch (error) {
-    return { success: false, message: error.message };
+    return {
+      success: false,
+      message: error.message,
+      data: null,
+    };
   } finally {
     if (connection) await connection.end();
     console.log("Connection closed");
