@@ -108,18 +108,17 @@ export const authAPI = {
 
 // SQL API
 export const sqlAPI = {
-  executeQuery: async (query) => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return {
-      data: {
-        results: [
-          { id: 1, name: "John Doe", email: "john@example.com" },
-          { id: 2, name: "Jane Smith", email: "jane@example.com" },
-        ],
-        executionTime: "0.23s",
-      },
-    };
+  executeQuery: async ({ query, connectionId, dialect }) => {
+    try {
+      const response = await api.post("/api/execute/", {
+        query,
+        connectionId,
+        dialect,
+      });
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
   },
 
   generateSchema: async (description) => {

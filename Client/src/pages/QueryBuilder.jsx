@@ -87,6 +87,7 @@ const QueryBuilder = () => {
   const [isEditorReady, setIsEditorReady] = useState(false)
   const [editorInstance, setEditorInstance] = useState(null)
   const [databaseMetadata, setDatabaseMetadata] = useState(null)
+  const [promptHistory, setPromptHistory] = useState([])
 
   // Fetch database metadata when a connection is selected
   useEffect(() => {
@@ -133,14 +134,26 @@ const QueryBuilder = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await sqlAPI.getQueryHistory();
-        if (response.sucess) {
-          setSavedQueries(response.data.savedQueries || []);
-          setExecutionHistory(response.data.executionHistory || []);
+        const [queryHistoryResponse, promptHistoryResponse] = await Promise.all([
+          sqlAPI.getQueryHistory(),
+          sqlAPI.getPromptHistory()
+        ]);
+
+        if (queryHistoryResponse.success) {
+          setSavedQueries(queryHistoryResponse.data.savedQueries || []);
+          setExecutionHistory(queryHistoryResponse.data.executionHistory || []);
+        } else {
+          throw new Error(queryHistoryResponse.message || 'Failed to fetch query history');
+        }
+
+        if (promptHistoryResponse.success) {
+          setPromptHistory(promptHistoryResponse.data.prompts || []);
+        } else {
+          throw new Error(promptHistoryResponse.message || 'Failed to fetch prompt history');
         }
       } catch (error) {
-        console.error('Error fetching query history:', error);
-        showError('Failed to load query history');
+        console.error('Error fetching history:', error);
+        showError('Failed to load history');
       }
     };
 
@@ -407,19 +420,52 @@ const QueryBuilder = () => {
     try {
       const response = await sqlAPI.executeQuery({
         query: output,
-        connectionId: selectedDb
+        connectionId: selectedDb,
+        dialect: selectedDialect
       })
 
-      if (response.sucess) {
+      if (response.success) {
+        // Handle the actual response format from the /execute endpoint
+        const { results, metadata } = response.data;
+        
+        // Format the results for display
+        const formattedResults = results.map(row => {
+          const formattedRow = {};
+          Object.entries(row).forEach(([key, value]) => {
+            // Handle null values
+            if (value === null) {
+              formattedRow[key] = 'NULL';
+            }
+            // Handle Date objects
+            else if (value instanceof Date) {
+              formattedRow[key] = value.toISOString();
+            }
+            // Handle other types
+            else {
+              formattedRow[key] = value;
+            }
+          });
+          return formattedRow;
+        });
+
         setResults({
-          data: response.data.results,
+          data: formattedResults,
           metadata: {
-            rowCount: response.data.results.length,
-            executionTime: response.data.executionTime,
-            affectedRows: response.data.affectedRows || 0
+            rowCount: metadata.rowCount,
+            executionTime: metadata.executionTime,
+            affectedRows: metadata.affectedRows,
+            columns: metadata.columns
           }
-        })
-        showSuccess('Query executed successfully!')
+        });
+
+        // Add to execution history
+        setExecutionHistory(prev => [{
+          query: output,
+          timestamp: new Date(),
+          metadata: metadata
+        }, ...prev]);
+
+        showSuccess(response.message || 'Query executed successfully!')
       } else {
         throw new Error(response.message || 'Failed to execute query')
       }
@@ -457,6 +503,11 @@ const QueryBuilder = () => {
     element.click()
     document.body.removeChild(element)
     showSuccess('Results downloaded successfully!')
+  }
+
+  const handleClearPromptHistory = () => {
+    setPromptHistory([])
+    showSuccess('Prompt history cleared')
   }
 
   return (
@@ -927,29 +978,35 @@ const QueryBuilder = () => {
                       <button 
                         className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 hover:shadow-sm"
                         title="Clear History"
+                        onClick={handleClearPromptHistory}
                       >
                         <History className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {savedQueries.map((item, index) => (
+                    {promptHistory.map((item, index) => (
                       <motion.div
                         key={index}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
                         className="p-4 bg-accent rounded-lg cursor-pointer hover:bg-accent/90 transition-all duration-200 border border-border hover:shadow-md"
-                        onClick={() => setInput(item.query)}
+                        onClick={() => setInput(item.prompt)}
                       >
-                        <p className="text-sm text-foreground mb-2 line-clamp-2">{item.query}</p>
-                        <p className="text-xs text-muted-foreground flex items-center space-x-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{new Date(item.timestamp).toLocaleString()}</span>
-                        </p>
+                        <p className="text-sm text-foreground mb-2 line-clamp-2">{item.prompt}</p>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{new Date(item.timestamp).toLocaleString()}</span>
+                          </div>
+                          <span className="px-2 py-1 bg-background text-foreground rounded-full">
+                            {item.status}
+                          </span>
+                        </div>
                       </motion.div>
                     ))}
-                    {savedQueries.length === 0 && (
+                    {promptHistory.length === 0 && (
                       <div className="text-center py-8">
                         <p className="text-sm text-muted-foreground">
                           No prompts history yet
@@ -969,7 +1026,9 @@ const QueryBuilder = () => {
                     {[...executionHistory, ...(results ? [{
                       query: output,
                       timestamp: new Date(),
-                      metadata: results.metadata
+                      response: {
+                        metadata: results.metadata
+                      }
                     }] : [])].map((execution, index) => (
                       <motion.div
                         key={index}
@@ -986,17 +1045,19 @@ const QueryBuilder = () => {
                               'Previous Execution'
                             )}
                           </span>
-                          <span className="text-xs text-muted-foreground">{execution.metadata.executionTime}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {execution.responseTime || execution.response?.metadata?.executionTime || 'N/A'}
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                           {execution.query}
                         </p>
                         <div className="flex items-center justify-between text-xs">
                           <span className="px-2 py-1 bg-background text-foreground rounded-full">
-                            Rows: {execution.metadata.rowCount}
+                            Rows: {execution.rows || execution.response?.metadata?.rowCount || 0}
                           </span>
                           <span className="px-2 py-1 bg-background text-foreground rounded-full">
-                            Affected: {execution.metadata.affectedRows}
+                            Affected: {execution.affectedRows || execution.response?.metadata?.affectedRows || 0}
                           </span>
                         </div>
                       </motion.div>
