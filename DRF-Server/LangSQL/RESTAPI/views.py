@@ -9,6 +9,7 @@ from RESTAPI.llm_model import text_to_sql  # SQL generation function
 from RESTAPI.schema_parser import convert_schema_to_model_format, convert_mongo_metadata_to_json  # Schema conversion
 from bson import ObjectId
 
+
 # Load environment variables
 load_dotenv()
 MONGO_URI = os.getenv("DB_HOST")
@@ -24,6 +25,17 @@ class GenerateSQLView(APIView):
         question = request.data.get("question")
         connectionId = request.data.get("connectionId")
 
+        # Check for Authorization header and validate the Bearer token
+        token = request.headers.get("Authorization")
+         
+        if not token:
+            return Response({"error": "Authorization token is missing"}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        if token:
+            SECRET_KEY = os.getenv("SECRET_KEY")
+            if SECRET_KEY != token:
+                return Response({"error": "Authorization token is missing"}, status=status.HTTP_401_UNAUTHORIZED)
+            
         if not user_id or not question or not connectionId:
             return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
 
