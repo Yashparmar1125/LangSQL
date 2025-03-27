@@ -40,9 +40,11 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.messages',
     'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.staticfiles',
     'rest_framework',
-    'RESTAPI',
     'corsheaders',
+    'RESTAPI'
 ]
 
 MIDDLEWARE = [
@@ -80,8 +82,11 @@ WSGI_APPLICATION = 'LangSQL.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-MONGO_URI = os.getenv('MONGO_URI')
+MONGO_URI = os.getenv('DB_HOST')
 MONGO_CLIENT = None  # Initialize as None
+MONGO_DB_NAME = "LangSQL"
+
+
 
 def get_mongo_client():
     global MONGO_CLIENT
