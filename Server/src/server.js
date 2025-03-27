@@ -20,6 +20,7 @@ import extractorRoutes from "./routes/extractor.routes.js";
 import connectionRoutes from "./routes/connection.routes.js";
 
 import executeRoutes from "./routes/execute.routes.js";
+import testtrino from "./routes/trinotest.routes.js";
 import historyRoutes from "./routes/history.routes.js";
 
 import { readFileSync } from "fs";
@@ -107,6 +108,7 @@ app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/extractor", extractorRoutes);
 app.use("/api/connections", connectionRoutes);
+app.use("/api/testtrino", testtrino);
 app.use("/api/execute", executeRoutes);
 app.use("/api/history", historyRoutes);
 
