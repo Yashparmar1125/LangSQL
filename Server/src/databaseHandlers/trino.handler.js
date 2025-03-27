@@ -1,28 +1,26 @@
-import Trino from "trino-client"; 
+import axios from "axios";
 
+async function testTrinoConnection({ host, port }) {
+  console.log("reached");
 
-async function testTrinoConnection({ host, port, user, catalog, schema }) {
-    try {
-        const client = new Trino.Client({
-            host,
-            port,
-            user,
-            catalog,
-            schema
-        });
+  try {
+    const response = await axios.get(`http://${host}:${port}/v1/info`);
 
-        return new Promise((resolve, reject) => {
-            client.query("SELECT 1", (error, data) => {
-                if (error) {
-                    reject({ success: false, message: "Trino connection failed", error });
-                } else {
-                    resolve({ success: true, message: "Trino connection successful", data });
-                }
-            });
-        });
-    } catch (error) {
-        return { success: false, message: "Error in Trino handler", error };
+    if (response.status === 200) {
+      return { success: true, message: "Trino is reachable" };
+    } else {
+      return {
+        success: false,
+        message: `Trino responded with status ${response.status}`,
+      };
     }
+  } catch (error) {
+    return {
+      success: false,
+      message: "Failed to connect to Trino",
+      error: error.message,
+    };
+  }
 }
 
 export default testTrinoConnection;
