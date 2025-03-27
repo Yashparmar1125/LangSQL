@@ -335,12 +335,9 @@ const QueryBuilder = () => {
     setIsLoading(true)
     try {
       // TODO: Call your AI service to convert natural language to SQL
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      const query = 'SELECT u.username, COUNT(o.order_id) as order_count ' +
-                   'FROM users u ' +
-                   'LEFT JOIN orders o ON u.id = o.user_id ' +
-                   'GROUP BY u.username ' +
-                   'HAVING COUNT(o.order_id) > 5;'
+      const response = await sqlAPI.generateQuerry(input, selectedDialect, selectedDb)
+      
+      const query = response.data.sql_query
       setOutput(query)
       setSuggestions([
         'You might also want to include the total order value',

@@ -120,6 +120,18 @@ export const sqlAPI = {
       throw handleAPIError(error);
     }
   },
+  generateQuerry:async(message,dialect,database)=>{
+    try {
+      const response = await api.post("/api/execute/ai/generate", {
+        message,
+        dialect,
+        database,
+      });
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  },
 
   generateSchema: async (description) => {
     // Simulate API delay

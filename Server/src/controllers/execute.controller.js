@@ -2,6 +2,8 @@ import executeQuery from "../utils/worker.util.js";
 import Connection from "../models/connection.model.js";
 import { decryptData } from "../services/aes.encryption.js";
 import QueryHistory from "../models/queeryhistory.model.js";
+import axios from 'axios';  // Make sure this is only declared once
+
 
 export const executeDBQuery = async (req, res) => {
   try {
@@ -57,3 +59,42 @@ export const executeDBQuery = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+
+
+
+export const generateQuery = async (req, res) => {
+  try {
+    const body = req.body;
+    console.log(body);
+
+    // Retrieve the Bearer token from environment variables
+    const token = process.env.DRF_SERVER_SERVICE_TOKEN;
+    const host = process.env.DRF_SERVER_HOST;
+
+    // Make the POST request with Authorization header
+    const response = await axios.post(
+      `${host}api/generate-sql/`,
+      {
+        user_id: req.user.userId, // Ensure `userId` exists and is correct
+        question: body.message,   // Ensure `message` is being passed correctly
+        connectionId: body.database, // Make sure this is also passed
+      },
+      {
+        headers: {
+          Authorization: `${token}`, // Adding the Bearer token
+          'Content-Type': 'application/json', // Ensures proper content type
+        },
+      }
+    );
+
+    
+    res.status(200).json({message:"success",success:true,data:response.data}); // Send the response back to the client
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
