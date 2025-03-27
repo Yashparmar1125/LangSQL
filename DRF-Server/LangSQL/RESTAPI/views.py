@@ -29,7 +29,6 @@ class GenerateSQLView(APIView):
 
         try:
             # Establish MongoDB connection
-            print(MONGO_URI)
             mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
             db = mongo_client[MONGO_DB_NAME]
 

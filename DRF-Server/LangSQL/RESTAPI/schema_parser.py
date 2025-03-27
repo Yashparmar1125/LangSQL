@@ -40,7 +40,6 @@ def convert_schema_to_model_format(db_metadata):
             schema_part += f' , FOREIGN KEY: {" , ".join(foreign_keys)}'
 
         schema_parts.append(schema_part + " [SEP]")
-    print(schema_parts)
     return " ".join(schema_parts)
 
 def convert_mongo_type(mongo_type):
