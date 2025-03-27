@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Play, 
@@ -26,33 +26,40 @@ import {
 } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import DashboardLayout from '../components/layout/DashboardLayout'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import { useToast } from '../contexts/ToastContext'
 import { useNavigate } from 'react-router-dom'
+import { sqlAPI } from '../services/api/axios.api'
+import { databaseAPI } from '../services/api/axios.api'
+import { decryptData } from '../services/encryption/aes.encryption'
 
 // Enhanced feedback for database connection
-const ConnectionStatus = ({ selectedDb }) => (
-  <AnimatePresence mode="wait">
-    <motion.div
-      key={selectedDb ? 'connected' : 'disconnected'}
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      transition={{ duration: 0.2 }}
-      className={`px-4 py-1.5 rounded-lg text-sm flex items-center space-x-2 ${
-        selectedDb 
-          ? 'bg-emerald-500/10 text-emerald-500'
-          : 'bg-amber-500/10 text-amber-500'
-      }`}
-    >
-      <div className={`w-2 h-2 rounded-full ${selectedDb ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-      <span>{selectedDb ? `Connected to ${selectedDb}` : 'No database selected'}</span>
-    </motion.div>
-  </AnimatePresence>
-)
+const ConnectionStatus = ({ selectedDb, connections }) => {
+  const connection = connections.find(conn => conn.id === selectedDb);
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={selectedDb ? 'connected' : 'disconnected'}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 10 }}
+        transition={{ duration: 0.2 }}
+        className={`px-4 py-1.5 rounded-lg text-sm flex items-center space-x-2 ${
+          selectedDb 
+            ? 'bg-emerald-500/10 text-emerald-500'
+            : 'bg-amber-500/10 text-amber-500'
+        }`}
+      >
+        <div className={`w-2 h-2 rounded-full ${selectedDb ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+        <span>{selectedDb ? `Connected to ${connection?.name || 'Unknown Database'}` : 'No database selected'}</span>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
 
 const QueryBuilder = () => {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
   const [selectedDb, setSelectedDb] = useState(null)
@@ -62,56 +69,13 @@ const QueryBuilder = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
   const [results, setResults] = useState(null)
-  const [savedQueries, setSavedQueries] = useState([
-    {
-      query: "Show me all users who have made purchases in the last month",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-      generated: "SELECT u.username, COUNT(o.order_id) as order_count, SUM(o.total_amount) as total_spent FROM users u JOIN orders o ON u.id = o.user_id WHERE o.order_date >= DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH) GROUP BY u.username"
-    },
-    {
-      query: "Find the top 5 most expensive products in Electronics category",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      generated: "SELECT name, price, category FROM products WHERE category = 'Electronics' ORDER BY price DESC LIMIT 5"
-    },
-    {
-      query: "List all orders with their customer details",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-      generated: "SELECT o.order_id, u.username, o.total_amount, o.status FROM orders o JOIN users u ON o.user_id = u.id ORDER BY o.order_date DESC"
-    }
-  ])
-  const [executionHistory] = useState([
-    {
-      query: "SELECT * FROM products WHERE category = 'Electronics'",
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 mins ago
-      metadata: {
-        rowCount: 15,
-        executionTime: '0.124s',
-        affectedRows: 15
-      }
-    },
-    {
-      query: "UPDATE products SET stock = stock - 1 WHERE product_id = 101",
-      timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45 mins ago
-      metadata: {
-        rowCount: 1,
-        executionTime: '0.086s',
-        affectedRows: 1
-      }
-    },
-    {
-      query: "SELECT COUNT(*) as total_orders, SUM(total_amount) as revenue FROM orders WHERE status = 'completed'",
-      timestamp: new Date(Date.now() - 1000 * 60 * 90), // 90 mins ago
-      metadata: {
-        rowCount: 1,
-        executionTime: '0.156s',
-        affectedRows: 0
-      }
-    }
-  ])
+  const [savedQueries, setSavedQueries] = useState([])
+  const [executionHistory, setExecutionHistory] = useState([])
   const { isDark } = useSelector((state) => state.theme)
   const { showSuccess, showError } = useToast()
-  const { activeConnection } = useSelector((state) => state.database)
-  const [aiMode, setAiMode] = useState('natural') // 'natural' | 'sql'
+  const { connections, activeConnection } = useSelector((state) => state.database)
+  const { user } = useSelector((state) => state.auth)
+  const [aiMode, setAiMode] = useState('natural')
   const [explanation, setExplanation] = useState(null)
   const [optimization, setOptimization] = useState(null)
   const [isExplaining, setIsExplaining] = useState(false)
@@ -119,11 +83,82 @@ const QueryBuilder = () => {
   const [suggestions, setSuggestions] = useState([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isHistoryOpen, setIsHistoryOpen] = useState(true)
-
-  // New state for keyboard shortcuts modal
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
   const [isEditorReady, setIsEditorReady] = useState(false)
   const [editorInstance, setEditorInstance] = useState(null)
+  const [databaseMetadata, setDatabaseMetadata] = useState(null)
+  const [promptHistory, setPromptHistory] = useState([])
+
+  // Fetch database metadata when a connection is selected
+  useEffect(() => {
+    const fetchDatabaseMetadata = async () => {
+      if (!selectedDb || !user?._id) return;
+
+      try {
+        const response = await databaseAPI.getConnectionDetails(selectedDb);
+        if (response.sucess) {
+          // The metadata is directly in response.metadata, no need to decrypt
+          setDatabaseMetadata({
+            id: response.metadata._id,
+            db_name: response.metadata.db_name,
+            tables: response.metadata.tables.map(table => ({
+              name: table.name,
+              description: table.description,
+              columns: table.columns.map(column => ({
+                name: column.name,
+                type: column.type,
+                isPrimary: column.indexed && column.unique,
+                isIndexed: column.indexed,
+                isUnique: column.unique,
+                nullable: column.nullable,
+                description: column.description,
+                references: column.references
+              }))
+            })),
+            lastUpdated: response.metadata.last_updated,
+            createdAt: response.metadata.created_at
+          });
+        } else {
+          throw new Error(response.message || 'Failed to fetch metadata');
+        }
+      } catch (error) {
+        console.error('Error fetching database metadata:', error);
+        showError('Failed to load database metadata');
+      }
+    };
+
+    fetchDatabaseMetadata();
+  }, [selectedDb, user?._id]);
+
+  // Fetch saved queries and execution history
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const [queryHistoryResponse, promptHistoryResponse] = await Promise.all([
+          sqlAPI.getQueryHistory(),
+          sqlAPI.getPromptHistory()
+        ]);
+
+        if (queryHistoryResponse.success) {
+          setSavedQueries(queryHistoryResponse.data.savedQueries || []);
+          setExecutionHistory(queryHistoryResponse.data.executionHistory || []);
+        } else {
+          throw new Error(queryHistoryResponse.message || 'Failed to fetch query history');
+        }
+
+        if (promptHistoryResponse.success) {
+          setPromptHistory(promptHistoryResponse.data.prompts || []);
+        } else {
+          throw new Error(promptHistoryResponse.message || 'Failed to fetch prompt history');
+        }
+      } catch (error) {
+        console.error('Error fetching history:', error);
+        showError('Failed to load history');
+      }
+    };
+
+    fetchHistory();
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -264,56 +299,6 @@ const QueryBuilder = () => {
     { id: 'spark', name: 'Spark SQL' }
   ]
 
-  // Mock databases and their schemas (replace with real data from your backend)
-  const mockDatabases = [
-    {
-      name: 'ecommerce_db',
-      schemas: [
-        {
-          name: 'public',
-          tables: [
-            {
-              name: 'users',
-              columns: [
-                { name: 'id', type: 'integer', isPrimary: true },
-                { name: 'username', type: 'varchar(50)', isPrimary: false },
-                { name: 'email', type: 'varchar(100)', isPrimary: false },
-                { name: 'created_at', type: 'timestamp', isPrimary: false }
-              ]
-            },
-            {
-              name: 'products',
-              columns: [
-                { name: 'product_id', type: 'integer', isPrimary: true },
-                { name: 'name', type: 'varchar(100)', isPrimary: false },
-                { name: 'price', type: 'decimal(10,2)', isPrimary: false },
-                { name: 'category', type: 'varchar(50)', isPrimary: false }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      name: 'analytics_db',
-      schemas: [
-        {
-          name: 'public',
-          tables: [
-            {
-              name: 'events',
-              columns: [
-                { name: 'event_id', type: 'integer', isPrimary: true },
-                { name: 'event_type', type: 'varchar(50)', isPrimary: false },
-                { name: 'timestamp', type: 'timestamp', isPrimary: false }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-
   const toggleSchema = (dbName, schemaName) => {
     setExpandedSchemas(prev => ({
       ...prev,
@@ -321,21 +306,25 @@ const QueryBuilder = () => {
     }))
   }
 
-  const toggleTable = (dbName, schemaName, tableName) => {
+  const toggleTable = (dbName, tableName) => {
     setExpandedTables(prev => ({
       ...prev,
-      [`${dbName}.${schemaName}.${tableName}`]: !prev[`${dbName}.${schemaName}.${tableName}`]
+      [`${dbName}.${tableName}`]: !prev[`${dbName}.${tableName}`]
     }))
   }
 
-  const handleSelectDatabase = (dbName) => {
-    setSelectedDb(dbName)
-    showSuccess(`Connected to ${dbName}`)
-  }
+  const handleSelectDatabase = (dbId) => {
+    setSelectedDb(dbId);
+    const connection = connections.find(conn => conn.id === dbId);
+    if (connection) {
+      setSelectedDialect(connection.type);
+      showSuccess(`Connected to ${connection.name}`);
+    }
+  };
 
   const handleTableClick = (tableName) => {
-    setOutput(`SELECT * FROM ${tableName} LIMIT 100;`)
-  }
+    setOutput(`SELECT * FROM ${tableName} LIMIT 100;`);
+  };
 
   const handleNaturalLanguageQuery = async () => {
     if (!input.trim() || !selectedDb) {
@@ -416,76 +405,6 @@ const QueryBuilder = () => {
     }
   }
 
-  // Mock data scenarios
-  const mockDataScenarios = {
-    users: {
-      data: [
-        { id: 1, username: 'john_doe', email: 'john@example.com', age: 25, created_at: '2024-01-15' },
-        { id: 2, username: 'jane_smith', email: 'jane@example.com', age: 30, created_at: '2024-02-01' },
-        { id: 3, username: 'bob_wilson', email: 'bob@example.com', age: 28, created_at: '2024-02-15' },
-        { id: 4, username: 'alice_brown', email: 'alice@example.com', age: 35, created_at: '2024-03-01' },
-      ],
-      metadata: {
-        rowCount: 4,
-        executionTime: '0.086s',
-        affectedRows: 4,
-      }
-    },
-    products: {
-      data: [
-        { product_id: 101, name: 'Laptop Pro', category: 'Electronics', price: 1299.99, stock: 50 },
-        { product_id: 102, name: 'Wireless Mouse', category: 'Accessories', price: 29.99, stock: 100 },
-        { product_id: 103, name: 'Gaming Monitor', category: 'Electronics', price: 499.99, stock: 25 },
-        { product_id: 104, name: 'Mechanical Keyboard', category: 'Accessories', price: 149.99, stock: 75 },
-      ],
-      metadata: {
-        rowCount: 4,
-        executionTime: '0.092s',
-        affectedRows: 4,
-      }
-    },
-    orders: {
-      data: [
-        { order_id: 1001, user_id: 1, total_amount: 1329.98, status: 'completed', order_date: '2024-03-10' },
-        { order_id: 1002, user_id: 2, total_amount: 499.99, status: 'processing', order_date: '2024-03-11' },
-        { order_id: 1003, user_id: 3, total_amount: 179.98, status: 'pending', order_date: '2024-03-12' },
-      ],
-      metadata: {
-        rowCount: 3,
-        executionTime: '0.078s',
-        affectedRows: 3,
-      }
-    },
-    aggregate: {
-      data: [
-        { category: 'Electronics', total_sales: 8999.93, avg_price: 899.99, item_count: 10 },
-        { category: 'Accessories', total_sales: 2999.80, avg_price: 89.99, item_count: 25 },
-        { category: 'Software', total_sales: 1499.95, avg_price: 49.99, item_count: 15 },
-      ],
-      metadata: {
-        rowCount: 3,
-        executionTime: '0.156s',
-        affectedRows: 3,
-      }
-    },
-    empty: {
-      data: [],
-      metadata: {
-        rowCount: 0,
-        executionTime: '0.042s',
-        affectedRows: 0,
-      }
-    },
-    update: {
-      data: [],
-      metadata: {
-        rowCount: 0,
-        executionTime: '0.064s',
-        affectedRows: 5,
-      }
-    }
-  }
-
   const handleExecute = async () => {
     if (!output.trim()) {
       showError('Please generate or write a SQL query first')
@@ -499,34 +418,60 @@ const QueryBuilder = () => {
 
     setIsExecuting(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // Determine which mock data to return based on the query content
-      const query = output.toLowerCase()
-      let mockResult
+      const response = await sqlAPI.executeQuery({
+        query: output,
+        connectionId: selectedDb,
+        dialect: selectedDialect
+      })
 
-      if (query.includes('update ') || query.includes('delete ') || query.includes('insert ')) {
-        mockResult = mockDataScenarios.update
-      } else if (query.includes('count(') || query.includes('sum(') || query.includes('avg(')) {
-        mockResult = mockDataScenarios.aggregate
-      } else if (query.includes('product')) {
-        mockResult = mockDataScenarios.products
-      } else if (query.includes('order')) {
-        mockResult = mockDataScenarios.orders
-      } else if (query.includes('user')) {
-        mockResult = mockDataScenarios.users
-      } else if (query.includes('where') && query.includes('not exists')) {
-        mockResult = mockDataScenarios.empty
+      if (response.success) {
+        // Handle the actual response format from the /execute endpoint
+        const { results, metadata } = response.data;
+        
+        // Format the results for display
+        const formattedResults = results.map(row => {
+          const formattedRow = {};
+          Object.entries(row).forEach(([key, value]) => {
+            // Handle null values
+            if (value === null) {
+              formattedRow[key] = 'NULL';
+            }
+            // Handle Date objects
+            else if (value instanceof Date) {
+              formattedRow[key] = value.toISOString();
+            }
+            // Handle other types
+            else {
+              formattedRow[key] = value;
+            }
+          });
+          return formattedRow;
+        });
+
+        setResults({
+          data: formattedResults,
+          metadata: {
+            rowCount: metadata.rowCount,
+            executionTime: metadata.executionTime,
+            affectedRows: metadata.affectedRows,
+            columns: metadata.columns
+          }
+        });
+
+        // Add to execution history
+        setExecutionHistory(prev => [{
+          query: output,
+          timestamp: new Date(),
+          metadata: metadata
+        }, ...prev]);
+
+        showSuccess(response.message || 'Query executed successfully!')
       } else {
-        // Default to users if no specific match
-        mockResult = mockDataScenarios.users
+        throw new Error(response.message || 'Failed to execute query')
       }
-
-      setResults(mockResult)
-      showSuccess(mockResult.data.length > 0 ? 'Query executed successfully!' : 'Query executed successfully (no results)')
     } catch (error) {
-      showError('Failed to execute query')
       console.error('Failed to execute query:', error)
+      showError(error.message || 'Failed to execute query')
     } finally {
       setIsExecuting(false)
     }
@@ -560,6 +505,11 @@ const QueryBuilder = () => {
     showSuccess('Results downloaded successfully!')
   }
 
+  const handleClearPromptHistory = () => {
+    setPromptHistory([])
+    showSuccess('Prompt history cleared')
+  }
+
   return (
     <DashboardLayout>
       <KeyboardShortcutsModal />
@@ -584,6 +534,10 @@ const QueryBuilder = () => {
                 <button 
                   className="p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:shadow-sm"
                   title="Refresh"
+                  onClick={() => {
+                    // Refresh connections
+                    dispatch(fetchConnections());
+                  }}
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
@@ -591,96 +545,62 @@ const QueryBuilder = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]">
               <div className="space-y-2">
-                {mockDatabases.map(db => (
-                  <div key={db.name} className="space-y-1">
+                {connections.map(conn => (
+                  <div key={conn.id} className="space-y-1">
                     <motion.button
                       whileHover={{ scale: 1.01 }}
-                      onClick={() => handleSelectDatabase(db.name)}
+                      onClick={() => handleSelectDatabase(conn.id)}
                       className={`flex items-center w-full p-3 rounded-lg text-sm transition-all duration-200 ${
-                        selectedDb === db.name 
+                        selectedDb === conn.id 
                           ? 'bg-primary text-primary-foreground shadow-sm' 
                           : 'hover:bg-accent hover:shadow-sm'
                       }`}
                     >
                       <Database className="w-4 h-4 mr-2" />
-                      {db.name}
+                      {conn.name}
                     </motion.button>
-                    {selectedDb === db.name && (
+                    {selectedDb === conn.id && databaseMetadata && (
                       <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         className="ml-4"
                       >
-                        {db.schemas.map(schema => (
-                          <div key={schema.name}>
+                        {databaseMetadata.tables?.map(table => (
+                          <div key={table.name}>
                             <button
-                              onClick={() => toggleSchema(db.name, schema.name)}
+                              onClick={() => toggleTable(conn.id, table.name)}
                               className="flex items-center w-full p-2.5 text-sm hover:bg-accent rounded-lg transition-all duration-200"
                             >
-                              {expandedSchemas[`${db.name}.${schema.name}`] ? (
+                              {expandedTables[`${conn.id}.${table.name}`] ? (
                                 <ChevronDown className="w-3 h-3 mr-2" />
                               ) : (
                                 <ChevronRight className="w-3 h-3 mr-2" />
                               )}
-                              <TableProperties className="w-4 h-4 mr-2" />
-                              {schema.name}
+                              <Table className="w-4 h-4 mr-2" />
+                              {table.name}
                             </button>
-                            {expandedSchemas[`${db.name}.${schema.name}`] && (
+                            {expandedTables[`${conn.id}.${table.name}`] && (
                               <motion.div 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="ml-7"
+                                className="ml-7 border-l border-border"
                               >
-                                {schema.tables.map(table => (
-                                  <div key={table.name}>
-                                    <button
-                                      onClick={() => handleTableClick(table.name)}
-                                      className="flex items-center w-full p-2.5 text-sm hover:bg-accent rounded-lg transition-all duration-200 group"
-                                    >
-                                      {expandedTables[`${db.name}.${schema.name}.${table.name}`] ? (
-                                        <ChevronDown className="w-3 h-3 mr-2" />
-                                      ) : (
-                                        <ChevronRight className="w-3 h-3 mr-2" />
-                                      )}
-                                      <Table className="w-4 h-4 mr-2" />
-                                      {table.name}
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleTableClick(table.name)
-                                        }}
-                                        className="ml-auto opacity-0 group-hover:opacity-100 p-1.5 hover:bg-accent/20 rounded-md transition-all duration-200"
-                                        title="Query table"
-                                      >
-                                        <Play className="w-3 h-3" />
-                                      </button>
-                                    </button>
-                                    {expandedTables[`${db.name}.${schema.name}.${table.name}`] && (
-                                      <motion.div 
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        className="ml-7 border-l border-border"
-                                      >
-                                        {table.columns.map(column => (
-                                          <div
-                                            key={column.name}
-                                            className="flex items-center p-2 text-sm"
-                                          >
-                                            {column.isPrimary ? (
-                                              <Key className="w-3 h-3 mr-2 text-primary" />
-                                            ) : (
-                                              <Columns className="w-3 h-3 mr-2" />
-                                            )}
-                                            <span className="text-foreground">
-                                              {column.name}
-                                            </span>
-                                            <span className="ml-2 text-xs text-muted-foreground">
-                                              {column.type}
-                                            </span>
-                                          </div>
-                                        ))}
-                                      </motion.div>
+                                {table.columns.map(column => (
+                                  <div
+                                    key={column.name}
+                                    className="flex items-center p-2 text-sm"
+                                  >
+                                    {column.isPrimary ? (
+                                      <Key className="w-3 h-3 mr-2 text-primary" />
+                                    ) : (
+                                      <Columns className="w-3 h-3 mr-2" />
                                     )}
+                                    <span className="text-foreground">
+                                      {column.name}
+                                    </span>
+                                    <span className="ml-2 text-xs text-muted-foreground">
+                                      {column.type}
+                                    </span>
                                   </div>
                                 ))}
                               </motion.div>
@@ -691,6 +611,19 @@ const QueryBuilder = () => {
                     )}
                   </div>
                 ))}
+                {connections.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">
+                      No database connections available
+                    </p>
+                    <button
+                      onClick={() => navigate('/manage-databases')}
+                      className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all"
+                    >
+                      Add Connection
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -704,7 +637,7 @@ const QueryBuilder = () => {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
                 <h1 className="text-2xl font-bold">Query Builder</h1>
                 <div className="flex items-center space-x-4">
-                  <ConnectionStatus selectedDb={selectedDb} />
+                  <ConnectionStatus selectedDb={selectedDb} connections={connections} />
                   <button
                     onClick={() => setShowKeyboardShortcuts(true)}
                     className="p-2 hover:bg-accent rounded-lg transition-all duration-200 flex items-center space-x-2"
@@ -827,7 +760,7 @@ const QueryBuilder = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
                   <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-4 mb-4 lg:mb-0">
                     <h2 className="text-xl font-semibold tracking-tight">SQL Query</h2>
-                    <ConnectionStatus selectedDb={selectedDb} />
+                    <ConnectionStatus selectedDb={selectedDb} connections={connections} />
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
@@ -1045,29 +978,35 @@ const QueryBuilder = () => {
                       <button 
                         className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 hover:shadow-sm"
                         title="Clear History"
+                        onClick={handleClearPromptHistory}
                       >
                         <History className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {savedQueries.map((item, index) => (
+                    {promptHistory.map((item, index) => (
                       <motion.div
                         key={index}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
                         className="p-4 bg-accent rounded-lg cursor-pointer hover:bg-accent/90 transition-all duration-200 border border-border hover:shadow-md"
-                        onClick={() => setInput(item.query)}
+                        onClick={() => setInput(item.prompt)}
                       >
-                        <p className="text-sm text-foreground mb-2 line-clamp-2">{item.query}</p>
-                        <p className="text-xs text-muted-foreground flex items-center space-x-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{new Date(item.timestamp).toLocaleString()}</span>
-                        </p>
+                        <p className="text-sm text-foreground mb-2 line-clamp-2">{item.prompt}</p>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{new Date(item.timestamp).toLocaleString()}</span>
+                          </div>
+                          <span className="px-2 py-1 bg-background text-foreground rounded-full">
+                            {item.status}
+                          </span>
+                        </div>
                       </motion.div>
                     ))}
-                    {savedQueries.length === 0 && (
+                    {promptHistory.length === 0 && (
                       <div className="text-center py-8">
                         <p className="text-sm text-muted-foreground">
                           No prompts history yet
@@ -1087,7 +1026,9 @@ const QueryBuilder = () => {
                     {[...executionHistory, ...(results ? [{
                       query: output,
                       timestamp: new Date(),
-                      metadata: results.metadata
+                      response: {
+                        metadata: results.metadata
+                      }
                     }] : [])].map((execution, index) => (
                       <motion.div
                         key={index}
@@ -1104,17 +1045,19 @@ const QueryBuilder = () => {
                               'Previous Execution'
                             )}
                           </span>
-                          <span className="text-xs text-muted-foreground">{execution.metadata.executionTime}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {execution.responseTime || execution.response?.metadata?.executionTime || 'N/A'}
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                           {execution.query}
                         </p>
                         <div className="flex items-center justify-between text-xs">
                           <span className="px-2 py-1 bg-background text-foreground rounded-full">
-                            Rows: {execution.metadata.rowCount}
+                            Rows: {execution.rows || execution.response?.metadata?.rowCount || 0}
                           </span>
                           <span className="px-2 py-1 bg-background text-foreground rounded-full">
-                            Affected: {execution.metadata.affectedRows}
+                            Affected: {execution.affectedRows || execution.response?.metadata?.affectedRows || 0}
                           </span>
                         </div>
                       </motion.div>

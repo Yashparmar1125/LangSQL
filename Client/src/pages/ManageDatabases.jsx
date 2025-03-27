@@ -110,11 +110,13 @@ const ManageDatabases = () => {
       }, user._id);
 
       const response = await databaseAPI.testConnection(encryptedData);
-      if (response.sucess) {
+      
+      if (response.success) {
         setTestStatus({
           success: true,
           message: 'Connection tested successfully!'
         });
+        showSuccess('Connection tested successfully!');
       }
     } catch (error) {
       setTestStatus({
