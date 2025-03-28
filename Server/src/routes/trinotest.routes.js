@@ -1,6 +1,7 @@
 import express from "express";
 import testTrinoConnection from "../databaseHandlers/trino.handler.js"; // Import the connection function
 import axios from "axios";
+import { LangflowClient } from "@datastax/langflow-client";
 
 const router = express.Router();
 // Route to check Trino connection
@@ -40,36 +41,40 @@ router.post("/", async (req, res) => {
         },
       },
     },
-    dialect: "spark sql",
+    dialect: "mysql",
   };
 
   try {
-    const response = await axios.post(
-      "https://astra.datastax.com/api/v1/run/2acecdb5-1aa5-4e3a-a33f-9cb6f0cb720a?stream=false",
-      {
-        input_value: JSON.stringify(inputValue), // Ensure input is properly formatted
-        output_type: "chat",
-        input_type: "chat",
-        tweaks: {
-          "Prompt-TySGF": {},
-          "Agent-1Peig": {},
-          "ChatInput-fIIlR": {},
-          "ChatOutput-b7VXk": {},
-        },
+    const payload = {
+      input_value: JSON.stringify(inputValue),
+      output_type: "chat",
+      input_type: "chat",
+      tweaks: {
+        "ChatInput-dOH3m": {},
+        "Prompt-cMcHL": {},
+        "GoogleGenerativeAIModel-3V8H5": {},
+        "ChatOutput-XCd37": {},
       },
+    };
+
+    const response = await axios.post(
+      "https://api.langflow.astra.datastax.com/lf/ab147fa5-088c-429d-88aa-465c74c8b303/api/v1/run/2acecdb5-1aa5-4e3a-a33f-9cb6f0cb720a?stream=false",
+      payload,
       {
         headers: {
-          Authorization: `Bearer AstraCS:qsjyBjRGGGCHaRJGerriEupW:656afcc8a82c59579f7ad31604099f65068e0f5cc87721fd92851e48f132438cE`, // Use environment variables
           "Content-Type": "application/json",
-          "x-api-key":
-            "AstraCS:qsjyBjRGGGCHaRJGerriEupW:656afcc8a82c59579f7ad31604099f65068e0f5cc87721fd92851e48f132438cE",
+          Authorization: `Bearer AstraCS:hxjebPiZnvMpQSQaZLPdDfzi:a3040aa24372c28a4c2e275a61b89e5e09957e4a64fd3f824c865ff9c1085651`,
         },
       }
     );
 
-    console.log("API Response:", response.data);
-    res.status(200).json(response.data); // Send response back to client
+    res.json(response.data);
   } catch (error) {
+    console.error(
+      "Error calling Langflow API:",
+      error.response?.data || error.message
+    );
+
     if (error.response) {
       // API responded with an error (4xx or 5xx)
       console.error("API Error:", error.response.status, error.response.data);
@@ -83,6 +88,44 @@ router.post("/", async (req, res) => {
       console.error("Request Error:", error.message);
       res.status(500).json({ error: "Internal Server Error" });
     }
+  }
+});
+
+router.post("/client", async (req, res) => {
+  try {
+    let inputValue = {
+      query:
+        "Show me the list of users along with their orders and the events they attended.",
+      metadata: {
+        databases: {
+          flask_db: {
+            tables: {
+              users: ["id", "name", "email"],
+              orders: ["order_id", "user_id", "amount"],
+            },
+          },
+          analytics_db: {
+            tables: {
+              events: ["event_id", "event_name", "timestamp"],
+            },
+          },
+        },
+      },
+      dialect: "trino",
+    };
+    const langflowId = "ab147fa5-088c-429d-88aa-465c74c8b303";
+    const flowId = "2acecdb5-1aa5-4e3a-a33f-9cb6f0cb720a";
+    const apiKey =
+      "AstraCS:hxjebPiZnvMpQSQaZLPdDfzi:a3040aa24372c28a4c2e275a61b89e5e09957e4a64fd3f824c865ff9c1085651";
+
+    const client = new LangflowClient({ langflowId, apiKey });
+    const flow = client.flow(flowId);
+    const result = await flow.run(JSON.stringify(inputValue));
+
+    return res.status(200).json({ sucess: true, result });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Internal server err" });
   }
 });
 
