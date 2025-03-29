@@ -1,28 +1,53 @@
-import Trino from 'trino-client';
+import axios from "axios";
 
-const trinoExecution = async ({ host, port, user, catalog, schema }) => {
-    let client;
-    try {
-        client = new Trino.Client({ 
-            server: `${host}:${port}`, 
-            user: user 
-        });
-        console.log("Connected to Trino");
-        const result = await new Promise((resolve, reject) => {
-            client.query({
-                query: `SHOW TABLES FROM ${catalog}.${schema}`,
-                success: (data) => resolve(data),
-                error: (error) => reject(error)
-            });
-        });
+// Function to execute a SQL query and check for long-running queries
+const executeQueryWithStatusCheck = async (config, sqlQuery) => {
+  try {
+    console.log("Executing query:", sqlQuery);
 
-        console.log("Query Result:", result);
-        return { success: true, message: 'Trino connection successful', data: result };
-    } catch (error) {
-        return { success: false, message: error.message };
-    } finally {
-        console.log("Closing Trino connection (stateless, no explicit disconnect needed)");
+    const authString = `${config.clientID}:${config.apiKey}`;
+    const encodedAuth = Buffer.from(authString).toString('base64');  // Encoding clientID:apiKey in base64
+
+    // Step 1: Execute the query
+    const response = await axios.post(
+      `${config.host}/v1/statement`,  // The endpoint for executing queries
+      { query: sqlQuery },  // SQL query
+      {
+        headers: {
+          'Authorization': `Basic ${encodedAuth}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const { queryId } = response.data;
+    console.log(`Query ID: ${queryId}`);
+    
+    // Step 2: Poll the status of the query
+    const statusResponse = await axios.get(
+      `${config.host}/v1/statement/${queryId}`,  // Check query status with queryId
+      {
+        headers: {
+          'Authorization': `Basic ${encodedAuth}`,
+        },
+      }
+    );
+
+    // Step 3: Handle the results
+    if (statusResponse.data.state === "FINISHED") {
+      return {
+        message: "Query finished successfully!",
+        data: statusResponse.data,  // Query result
+      };
+    } else {
+      return {
+        message: "Query still running, please check again.",
+        status: statusResponse.data.state,
+      };
     }
+  } catch (error) {
+    return { error: error.response?.data || error.message };
+  }
 };
 
-export default trinoExecution;
+export default executeQueryWithStatusCheck;
