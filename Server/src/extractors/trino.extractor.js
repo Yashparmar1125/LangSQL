@@ -1,18 +1,18 @@
 import axios from "axios";
 
 // Function to fetch metadata (schemas, tables, columns)
-const getMetadata = async (config) => {
+const trinoMetadataExtractor = async (config) => {
   try {
     // Prepare headers for authentication
-    const authString = `${config.clientID}:${config.apiKey}`;
-    const encodedAuth = Buffer.from(authString).toString('base64');
+    const authString = `${config.clientId}:${config.apiKey}`;
+    const encodedAuth = Buffer.from(authString).toString("base64");
 
     // 1. Get available catalogs
     const catalogsResponse = await axios.get(
       `${config.host}/v1/metadata/catalogs`, // Endpoint for getting catalogs
       {
         headers: {
-          'Authorization': `Basic ${encodedAuth}`,
+          Authorization: `Basic ${encodedAuth}`,
         },
       }
     );
@@ -24,7 +24,7 @@ const getMetadata = async (config) => {
         `${config.host}/v1/metadata/catalogs/${catalog}/schemas`, // Get schemas in the catalog
         {
           headers: {
-            'Authorization': `Basic ${encodedAuth}`,
+            Authorization: `Basic ${encodedAuth}`,
           },
         }
       );
@@ -41,7 +41,7 @@ const getMetadata = async (config) => {
           `${config.host}/v1/metadata/catalogs/${catalog}/schemas/${schema}/tables`, // Get tables in schema
           {
             headers: {
-              'Authorization': `Basic ${encodedAuth}`,
+              Authorization: `Basic ${encodedAuth}`,
             },
           }
         );
@@ -64,4 +64,4 @@ const getMetadata = async (config) => {
   }
 };
 
-export default getMetadata;
+export default trinoMetadataExtractor;

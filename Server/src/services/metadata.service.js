@@ -4,14 +4,15 @@ import pkg from "pg";
 const { Pool } = pkg;
 
 export const extractMetadata = async (data) => {
-  const { host, port, user, password, database, db_type } = data;
+  const { host, port, user, password, database, type } = data;
+  console.log(data);
 
   try {
     let connection;
     let metadataExtractor;
 
     // MySQL connection
-    if (db_type === "mysql") {
+    if (type === "mysql") {
       connection = mysql.createConnection({
         host,
         port,
@@ -23,11 +24,11 @@ export const extractMetadata = async (data) => {
       connection.connect();
 
       // Create the extractor based on the db type
-      metadataExtractor = MetadataExtractorFactory(db_type, connection);
+      metadataExtractor = MetadataExtractorFactory(type, connection);
     }
 
     // PostgreSQL connection
-    else if (db_type === "postgresql") {
+    else if (type === "postgresql") {
       connection = new Pool({
         host,
         port,
@@ -38,7 +39,7 @@ export const extractMetadata = async (data) => {
 
       // PostgreSQL Pool doesn't require connection.connect(), use pool directly
       // Create the extractor based on the db type
-      metadataExtractor = MetadataExtractorFactory(db_type, connection);
+      metadataExtractor = MetadataExtractorFactory(type, connection);
     }
 
     // Extract the metadata

@@ -1,6 +1,7 @@
 import Connection from "../models/connection.model.js";
 import DatabaseMetadata from "../models/databasemetadata.model.js";
 import { extractMetadata } from "../services/metadata.service.js";
+import trinoMetadataExtractor from "../extractors/trino.extractor.js";
 
 import { decryptData } from "../services/aes.encryption.js";
 // Create a new connection
@@ -10,13 +11,27 @@ export const createConnection = async (req, res) => {
 
   try {
     const decryptedData = decryptData(connectionData, userId);
+    // // if (decryptData.type == "trino") {
+    // //   const metadata = await trinoMetadataExtractor(decryptedData);
+    // //   if (!metadata) {
+    // //     return res.status(500).json({
+    // //       sucess: false,
+    // //       message: "Connection failed. Please check your credentials",
+    // //     });
+    // //   }
+    //   return res.status(200).json({
+    //     sucess: true,
+    //     message: "Connection created successfully",
+    //     metadata,
+    //   });
+    // }
     const metaDetailes = {
       host: decryptedData.host,
       port: decryptedData.port,
       user: decryptedData.username,
       password: decryptedData.password,
       database: decryptedData.database,
-      db_type: decryptedData.type,
+      type: decryptedData.type,
     };
     const metadata = await extractMetadata(metaDetailes);
 
@@ -99,16 +114,22 @@ export const deleteConnection = async (req, res) => {
   }
 };
 
-export const getMetadata=async(req,res)=>{
+export const getMetadata = async (req, res) => {
   try {
-    const userId=req.user.userId;
-    const connectionId=req.params.id;
-    const metadata=await DatabaseMetadata.findOne({userId,connectionId});
-    if(!metadata){
-      return res.status(404).json({sucess:false,message:"Metadata not found"});
+    const userId = req.user.userId;
+    const connectionId = req.params.id;
+    const metadata = await DatabaseMetadata.findOne({ userId, connectionId });
+    if (!metadata) {
+      return res
+        .status(404)
+        .json({ sucess: false, message: "Metadata not found" });
     }
-    res.status(200).json({sucess:true,message:"Metadata fetched successfully",metadata});
+    res.status(200).json({
+      sucess: true,
+      message: "Metadata fetched successfully",
+      metadata,
+    });
   } catch (error) {
-    res.status(500).json({sucess:false,message:error.message});
+    res.status(500).json({ sucess: false, message: error.message });
   }
-}
+};
