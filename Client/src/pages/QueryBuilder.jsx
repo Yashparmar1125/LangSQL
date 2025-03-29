@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import queryAutocomplete from "../services/autocomplete/trie";
 import { 
   Play, 
   Copy, 
@@ -88,6 +89,44 @@ const QueryBuilder = () => {
   const [editorInstance, setEditorInstance] = useState(null)
   const [databaseMetadata, setDatabaseMetadata] = useState(null)
   const [promptHistory, setPromptHistory] = useState([])
+  const [suggestion, setSuggestion] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const inputRef = useRef(null);
+ 
+  useEffect(() => {
+    if (input.trim()) {
+      const results = queryAutocomplete.getSuggestion(input);
+      setSuggestion(results);
+      setSelectedIndex(-1); // Reset selection
+    } else {
+      setSuggestion([]);
+    }
+  }, [input]);
+
+  // Handle keyboard navigation (Arrow keys & Tab)
+  const handleKeyDown = (e) => {
+    if (suggestion.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev + 1 < suggestion.length ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev - 1 >= 0 ? prev - 1 : suggestion.length - 1));
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      if (selectedIndex !== -1) {
+        setInput(suggestion[selectedIndex]); // Autocomplete selection
+        setSuggestion([]);
+      }
+    }
+  };
+
+  // Handle click selection
+  const handleSelect = (query) => {
+    setInput(query);
+    setSuggestion([]);
+  };
 
   // Fetch database metadata when a connection is selected
   useEffect(() => {
@@ -118,6 +157,9 @@ const QueryBuilder = () => {
             lastUpdated: response.metadata.last_updated,
             createdAt: response.metadata.created_at
           });
+      //    console.log(databaseMetadata)
+        //  const buffer=await databaseAPI.getBufferQuestions(databaseMetadata)
+         // console.log(buffer)
         } else {
           throw new Error(response.message || 'Failed to fetch metadata');
         }
@@ -129,6 +171,22 @@ const QueryBuilder = () => {
 
     fetchDatabaseMetadata();
   }, [selectedDb, user?._id]);
+
+  useEffect(() => {
+    if (databaseMetadata) {
+      const fetchBuffer = async () => {
+        try {
+          const buffer = await databaseAPI.getBufferQuestions(databaseMetadata);
+          console.log(buffer);
+          localStorage.setItem("bufferData", JSON.stringify(buffer));
+        } catch (error) {
+          console.error('Error fetching buffer questions:', error);
+        }
+      };
+  
+      fetchBuffer();
+    }
+  }, [databaseMetadata]);
 
   // Fetch saved queries and execution history
   useEffect(() => {
@@ -319,6 +377,7 @@ const QueryBuilder = () => {
     if (connection) {
       setSelectedDialect(connection.type);
       showSuccess(`Connected to ${connection.name}`);
+      console.log("content:",databaseMetadata)
     }
   };
 
@@ -723,13 +782,32 @@ const QueryBuilder = () => {
                     </div>
                   </div>
                   <div className="relative">
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Describe what you want to query in plain English. For example: 'Show me all users who have placed more than 5 orders'"
-                      className="w-full h-32 lg:h-40 p-4 text-base border border-border rounded-xl bg-accent text-foreground resize-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
+      <textarea
+        ref={inputRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Describe what you want to query in plain English. For example: 'Show me all users who have placed more than 5 orders'"
+        className="w-full h-32 lg:h-40 p-4 text-base border border-border rounded-xl bg-accent text-foreground resize-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
+      />
+
+      {/* Suggestions Dropdown */}
+      {suggestion.length > 0 && (
+        <ul className="absolute left-0 w-full bg-white border border-gray-300 rounded-lg shadow-md max-h-48 overflow-y-auto z-50">
+          {suggestion.map((query, index) => (
+            <li
+              key={index}
+              onClick={() => handleSelect(query)}
+              className={`p-2 cursor-pointer hover:bg-gray-200 ${
+                index === selectedIndex ? "bg-gray-300" : ""
+              }`}
+            >
+              {query}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
                   <button
                     onClick={handleNaturalLanguageQuery}
                     disabled={isLoading || !input.trim() || !selectedDb}

@@ -246,6 +246,27 @@ export const databaseAPI = {
       throw handleAPIError(error);
     }
   },
+  getBufferQuestions:async (metadata) => {
+    try {
+      const response = {
+        prompts: [
+          "Generate a blog post about the impact of AI on daily life.",
+          "Write a creative story about a time traveler who gets stuck in the past.",
+          "Explain quantum computing in simple terms for beginners.",
+          "Describe a futuristic city where humans and robots coexist peacefully.",
+          "Create a motivational speech for students preparing for exams.",
+          "List 10 innovative business ideas for startups in 2025.",
+          "Write a poem about the beauty of the changing seasons.",
+          "Draft a product description for a smart home security device.",
+          "Summarize the plot of a famous novel in under 100 words.",
+          "Generate a dialogue between two characters debating space exploration."
+        ]
+      };
+      return response.prompts;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
+  }, 
 };
 
 export default api;
