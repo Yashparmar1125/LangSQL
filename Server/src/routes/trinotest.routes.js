@@ -91,42 +91,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.post("/client", async (req, res) => {
-  try {
-    let inputValue = {
-      query:
-        "Show me the list of users along with their orders and the events they attended.",
-      metadata: {
-        databases: {
-          flask_db: {
-            tables: {
-              users: ["id", "name", "email"],
-              orders: ["order_id", "user_id", "amount"],
-            },
-          },
-          analytics_db: {
-            tables: {
-              events: ["event_id", "event_name", "timestamp"],
-            },
-          },
-        },
-      },
-      dialect: "trino",
-    };
-    const langflowId = "ab147fa5-088c-429d-88aa-465c74c8b303";
-    const flowId = "2acecdb5-1aa5-4e3a-a33f-9cb6f0cb720a";
-    const apiKey =
-      "AstraCS:hxjebPiZnvMpQSQaZLPdDfzi:a3040aa24372c28a4c2e275a61b89e5e09957e4a64fd3f824c865ff9c1085651";
-
-    const client = new LangflowClient({ langflowId, apiKey });
-    const flow = client.flow(flowId);
-    const result = await flow.run(JSON.stringify(inputValue));
-
-    return res.status(200).json({ sucess: true, result });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({ message: "Internal server err" });
-  }
-});
+router.post("/client", );
 
 export default router;
