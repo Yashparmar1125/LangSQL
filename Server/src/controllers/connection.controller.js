@@ -2,6 +2,7 @@ import Connection from "../models/connection.model.js";
 import DatabaseMetadata from "../models/databasemetadata.model.js";
 import { extractMetadata } from "../services/metadata.service.js";
 import axios from "axios";
+import trinoMetadataExtractor from "../extractors/trino.extractor.js";
 import { decryptData } from "../services/aes.encryption.js";
 // Create a new connection
 export const createConnection = async (req, res) => {
@@ -10,13 +11,27 @@ export const createConnection = async (req, res) => {
 
   try {
     const decryptedData = decryptData(connectionData, userId);
+    // // if (decryptData.type == "trino") {
+    // //   const metadata = await trinoMetadataExtractor(decryptedData);
+    // //   if (!metadata) {
+    // //     return res.status(500).json({
+    // //       sucess: false,
+    // //       message: "Connection failed. Please check your credentials",
+    // //     });
+    // //   }
+    //   return res.status(200).json({
+    //     sucess: true,
+    //     message: "Connection created successfully",
+    //     metadata,
+    //   });
+    // }
     const metaDetailes = {
       host: decryptedData.host,
       port: decryptedData.port,
       user: decryptedData.username,
       password: decryptedData.password,
       database: decryptedData.database,
-      db_type: decryptedData.type,
+      type: decryptedData.type,
     };
     const metadata = await extractMetadata(metaDetailes);
 
@@ -238,3 +253,4 @@ export const generateSchema = async (req, res) => {
     res.status(500).json({ sucess: false, message: error.message });
   }
 };
+
