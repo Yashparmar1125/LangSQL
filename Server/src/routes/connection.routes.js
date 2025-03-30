@@ -4,7 +4,9 @@ import {
   deleteConnection,
   getConnection,
   updateConnection,
-  getMetadata
+  getMetadata,
+  getBufferQuestions,
+  generateSchema,
 } from "../controllers/connection.controller.js";
 import testConnection from "../controllers/test.controller.js";
 import validateConnectionDetails from "../middlewares/validation.middleware.js";
@@ -19,5 +21,7 @@ router.put("/update/:id", authMiddleware, updateConnection);
 router.delete("/delete/:id", authMiddleware, deleteConnection);
 router.get("/metadata/:id",authMiddleware,getMetadata)
 router.post("/test", authMiddleware, testConnection);
+router.post("/buffer", authMiddleware, getBufferQuestions);
+router.post("/schema/generate", authMiddleware, generateSchema);
 
 export default router;
