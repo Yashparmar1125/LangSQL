@@ -18,7 +18,6 @@ export const LangFlowService = async (body, metaData) => {
       dialect: body.dialect,
     };
 
-    console.log(inputValue);
 
     // Initialize Langflow client
     const client = new LangflowClient({ langflowId, apiKey });
@@ -39,7 +38,6 @@ export const LangFlowService = async (body, metaData) => {
 
     const data = JSON.parse(match[0]);
 
-    console.log(data);
     return { success: true, data: data };
   } catch (error) {
     console.error("LangFlowService Error:", error);

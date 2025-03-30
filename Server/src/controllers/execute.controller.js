@@ -88,12 +88,13 @@ export const executeDBQuery = async (req, res) => {
 
 export const generateQuery = async (req, res) => {
   try {
-    const { message, database: connectionId, dialect } = req.body;
+    const { message, database, dialect } = req.body;
+    console.log(req.body);
     const userId = req.user.userId;
 
     const metaData = await DatabaseMetadata.findOne({
       userId,
-      connectionId,
+      connectionId: database,
     });
 
     if (!metaData) {
@@ -121,8 +122,9 @@ export const generateQuery = async (req, res) => {
       });
     }
 
-    const token = process.env.DRF_SERVER_SERVICE_TOKEN;
+    const token = process.env.DRF_SERVICE_TOKEN;
     const host = process.env.DRF_SERVER_HOST;
+
 
     if (!token || !host) {
       return res.status(500).json({
@@ -136,7 +138,7 @@ export const generateQuery = async (req, res) => {
       {
         user_id: userId,
         question: message,
-        connectionId,
+        connectionId: database,
       },
       {
         headers: {
@@ -145,6 +147,7 @@ export const generateQuery = async (req, res) => {
         },
       }
     );
+    console.log(response.data);
 
     return res.status(200).json({
       success: true,

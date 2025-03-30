@@ -219,12 +219,30 @@ export const getBufferQuestions = async (req, res) => {
 
 export const generateSchema = async (req, res) => {
   try {
-    console.log(req.body);
+    const { description, dialect } = req.body;
+
+    // Validate required fields
+    if (!description || !dialect) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: description and dialect",
+      });
+    }
+
     const apiKey = process.env.SCHEMA_LANGFLOW_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error: Missing SCHEMA_LANGFLOW_API_KEY",
+      });
+    }
+
+    console.log("Generating schema with:", { description, dialect });
+
     const response = await axios.post(
       "https://api.langflow.astra.datastax.com/lf/ab147fa5-088c-429d-88aa-465c74c8b303/api/v1/run/af4138b3-c5a7-47df-b9da-691551c0bbd6?stream=false",
       {
-        input_value: `${JSON.stringify(req.body)}`,
+        input_value: JSON.stringify({ description, dialect }),
         output_type: "chat",
         input_type: "chat",
         tweaks: {
@@ -242,15 +260,26 @@ export const generateSchema = async (req, res) => {
         },
       }
     );
+
+    if (
+      !response.data?.outputs?.[0]?.outputs?.[0]?.results?.message?.data?.text
+    ) {
+      throw new Error("Invalid response format from LangFlow API");
+    }
+
     const schema =
       response.data.outputs[0].outputs[0].results.message.data.text;
+
     res.status(200).json({
-      sucess: true,
+      success: true,
       message: "Schema generated successfully",
       schema,
     });
   } catch (error) {
-    res.status(500).json({ sucess: false, message: error.message });
+    console.error("Schema generation error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to generate schema",
+    });
   }
 };
-

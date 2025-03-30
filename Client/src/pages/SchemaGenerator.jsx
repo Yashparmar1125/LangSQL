@@ -288,30 +288,38 @@ const SchemaGenerator = () => {
 
     setIsLoading(true)
     try {
+      console.log("Sending request with:", { description: aiPromptValue, dialect: selectedDialect });
       const response = await sqlAPI.generateSchema(aiPromptValue, selectedDialect)
-      if (response.sucess) {
-        // Remove markdown code block markers and parse the JSON
-        const cleanSchema = response.schema.replace(/```json\n?|\n?```/g, '').trim()
-        console.log("Cleaned schema:", cleanSchema)
-        const schemaObj = JSON.parse(cleanSchema)
-        console.log("Parsed schema:", schemaObj)
-        
-        // Set the SQL query from the parsed object
-        setGeneratedSchema(schemaObj.sql_query)
-        setIsViewMode(true)
-        
-        setOptimizationSuggestions([
-          'Consider adding an index on user_id in the orders table for faster lookups',
-          'Partitioning the orders table by created_at will improve OLAP queries',
-          'Adding a composite index on (user_id, created_at) will optimize common queries'
-        ])
-        showSuccess('Schema generated successfully!')
+      console.log("Received response:", response);
+      
+      if (response.success) {
+        try {
+          // Remove markdown code block markers and parse the JSON
+          const cleanSchema = response.schema.replace(/```json\n?|\n?```/g, '').trim()
+          console.log("Cleaned schema:", cleanSchema)
+          const schemaObj = JSON.parse(cleanSchema)
+          console.log("Parsed schema:", schemaObj)
+          
+          // Set the SQL query from the parsed object
+          setGeneratedSchema(schemaObj.sql_query)
+          setIsViewMode(true)
+          
+          setOptimizationSuggestions([
+            'Consider adding an index on user_id in the orders table for faster lookups',
+            'Partitioning the orders table by created_at will improve OLAP queries',
+            'Adding a composite index on (user_id, created_at) will optimize common queries'
+          ])
+          showSuccess('Schema generated successfully!')
+        } catch (parseError) {
+          console.error("Error parsing schema:", parseError);
+          showError('Failed to parse generated schema')
+        }
       } else {
         throw new Error(response.message || 'Failed to generate schema')
       }
     } catch (error) {
-      showError('Failed to generate schema')
       console.error('Failed to generate schema:', error)
+      showError(error.message || 'Failed to generate schema')
     } finally {
       setIsLoading(false)
       setShowAIPrompt(false)

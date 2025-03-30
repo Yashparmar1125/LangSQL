@@ -139,7 +139,7 @@ export const sqlAPI = {
         description,
         dialect,
       });
-      
+
       return response.data;
     } catch (error) {
       throw handleAPIError(error);
