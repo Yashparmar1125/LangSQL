@@ -89,7 +89,6 @@ app.use(helmet()); //sets security HTTP headers
 app.use(mongoSanitize()); //cleans user input from malicious HTML
 app.use(xssClean()); //cleans user input from malicious scripts
 app.use(hpp()); //prevents HTTP Parameter Pollution attacks
-app.use(limiter); //limits repeated requests
 app.use(express.json()); //parses incoming requests with JSON payloads
 app.use(express.urlencoded({ extended: true })); //parses incoming requests with URL-encoded payloads
 app.use(cookieParser()); //parses incoming requests with cookies

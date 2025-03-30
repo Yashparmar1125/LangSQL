@@ -50,6 +50,9 @@ const ManageDatabases = () => {
     username: '',
     password: '',
     ssl: false,
+    clientId: '',
+    apiKey: '',
+    galaxyDomain: '',
   })
 
   const databaseTypes = [
@@ -150,7 +153,17 @@ const ManageDatabases = () => {
       return;
     }
 
-    if (formData.name && formData.host) {
+    const requiredFields = formData.type === 'trino' 
+      ? ['name', 'galaxyDomain', 'clientId', 'apiKey']
+      : ['name', 'host', 'port', 'database', 'username', 'password'];
+
+    const missingFields = requiredFields.filter(field => !formData[field]);
+    if (missingFields.length > 0) {
+      showError(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      return;
+    }
+
+    if (formData.name) {
       dispatch(setConnecting(true))
       dispatch(clearError())
 
@@ -158,12 +171,21 @@ const ManageDatabases = () => {
         const dataToEncrypt = {
           name: formData.name,
           type: formData.type,
-          host: formData.host,
-          port: formData.port,
-          database: formData.database,
-          username: formData.username,
-          password: formData.password,
-          ssl: formData.ssl
+          ...(formData.type === 'trino' 
+            ? { 
+                host: formData.galaxyDomain,
+                clientId: formData.clientId, 
+                apiKey: formData.apiKey 
+              }
+            : { 
+                host: formData.host,
+                port: formData.port,
+                database: formData.database,
+                username: formData.username,
+                password: formData.password,
+                ssl: formData.ssl 
+              }
+          )
         };
         
         const encryptedData = encryptData(dataToEncrypt, user._id);
@@ -187,6 +209,9 @@ const ManageDatabases = () => {
             username: '',
             password: '',
             ssl: false,
+            clientId: '',
+            apiKey: '',
+            galaxyDomain: '',
           });
           setIsAddModalOpen(false);
           showSuccess('Connection added successfully!');
@@ -451,7 +476,15 @@ const ManageDatabases = () => {
                 <label className="block text-sm font-medium mb-2">Database Type</label>
                 <select
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ 
+                      ...formData, 
+                      type: e.target.value,
+                      clientId: '',
+                      apiKey: '',
+                      galaxyDomain: '',
+                    })
+                  }}
                   className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
                 >
                   {databaseTypes.map(type => (
@@ -460,85 +493,132 @@ const ManageDatabases = () => {
                 </select>
               </div>
 
-              {/* Host & Port */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Host</label>
-                  <input
-                    type="text"
-                    value={formData.host}
-                    onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
-                    placeholder="localhost"
-                    required
-                  />
+              {/* Conditional Fields based on Database Type */}
+              {formData.type === 'trino' ? (
+                <div className="space-y-4">
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <p className="text-sm text-blue-500">
+                      Please enter your Starburst Galaxy credentials below. You can find these in your Starburst Galaxy account settings.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Galaxy Domain</label>
+                    <input
+                      type="text"
+                      value={formData.galaxyDomain}
+                      onChange={(e) => setFormData({ ...formData, galaxyDomain: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                      placeholder="e.g., galaxy.starburstdata.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Client ID</label>
+                    <input
+                      type="text"
+                      value={formData.clientId}
+                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                      placeholder="Enter your Starburst Galaxy Client ID"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">API Key</label>
+                    <input
+                      type="password"
+                      value={formData.apiKey}
+                      onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                      placeholder="Enter your Starburst Galaxy API Key"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Port</label>
-                  <input
-                    type="text"
-                    value={formData.port}
-                    onChange={(e) => setFormData({ ...formData, port: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
-                    placeholder="5432"
-                    required
-                  />
-                </div>
-              </div>
+              ) : (
+                <>
+                  {/* Host & Port */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Host</label>
+                      <input
+                        type="text"
+                        value={formData.host}
+                        onChange={(e) => setFormData({ ...formData, host: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                        placeholder="localhost"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Port</label>
+                      <input
+                        type="text"
+                        value={formData.port}
+                        onChange={(e) => setFormData({ ...formData, port: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                        placeholder="5432"
+                        required
+                      />
+                    </div>
+                  </div>
 
-              {/* Database Name */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Database Name</label>
-                <input
-                  type="text"
-                  value={formData.database}
-                  onChange={(e) => setFormData({ ...formData, database: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
-                  placeholder="mydatabase"
-                  required
-                />
-              </div>
+                  {/* Database Name */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Database Name</label>
+                    <input
+                      type="text"
+                      value={formData.database}
+                      onChange={(e) => setFormData({ ...formData, database: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                      placeholder="mydatabase"
+                      required
+                    />
+                  </div>
 
-              {/* Username & Password */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Username</label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
-                    placeholder="username"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Password</label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-              </div>
+                  {/* Username & Password */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Username</label>
+                      <input
+                        type="text"
+                        value={formData.username}
+                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                        placeholder="username"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Password</label>
+                      <input
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0A0A0B] focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#00E5FF] outline-none transition-all"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
-              {/* SSL Toggle */}
-              <div className="flex items-center space-x-3">
-                <label className="relative inline-flex items-center cursor-pointer">
+              {/* SSL Toggle - Only show for non-Trino connections */}
+              {formData.type !== 'trino' && (
+                <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     id="ssl"
                     checked={formData.ssl}
                     onChange={(e) => setFormData({ ...formData, ssl: e.target.checked })}
-                    className="sr-only peer"
+                    className="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-[#00E5FF] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500 dark:peer-checked:bg-[#00E5FF]"></div>
-                  <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Use SSL Connection</span>
-                </label>
-              </div>
+                  <label htmlFor="ssl" className="text-sm font-medium">
+                    Use SSL Connection
+                  </label>
+                </div>
+              )}
 
               {/* Test Connection Status */}
               {testStatus && (
@@ -565,11 +645,14 @@ const ManageDatabases = () => {
               )}
 
               <div className="flex justify-end space-x-3">
-                
                 <button
                   type="button"
                   onClick={() => handleTestConnection(Date.now())}
-                  disabled={isConnecting || !formData.host || !formData.port || !formData.database || !formData.username || !formData.password}
+                  disabled={isConnecting || (
+                    formData.type === 'trino' 
+                      ? !formData.galaxyDomain || !formData.clientId || !formData.apiKey
+                      : !formData.host || !formData.port || !formData.database || !formData.username || !formData.password
+                  )}
                   className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {isConnecting ? (
@@ -586,7 +669,11 @@ const ManageDatabases = () => {
                 </button>
                 <button
                   onClick={handleAddConnection}
-                  disabled={isConnecting || !formData.name || !formData.host || !formData.port || !formData.database || !formData.username || !formData.password}
+                  disabled={isConnecting || (
+                    formData.type === 'trino'
+                      ? !formData.name || !formData.galaxyDomain || !formData.clientId || !formData.apiKey
+                      : !formData.name || !formData.host || !formData.port || !formData.database || !formData.username || !formData.password
+                  )}
                   className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {isConnecting ? (

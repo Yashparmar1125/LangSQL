@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Editor from '@monaco-editor/react'
 import {
@@ -18,11 +18,13 @@ import {
   Keyboard,
   Info,
   MessageSquare,
-  Zap
+  Zap,
+  Edit
 } from 'lucide-react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import { useToast } from '../contexts/ToastContext'
 import { useSelector } from 'react-redux'
+import { sqlAPI } from '../services/api/axios.api'
 
 // Loading indicator component
 const LoadingSpinner = () => (
@@ -69,6 +71,12 @@ const SchemaGenerator = () => {
   ])
   const { showSuccess, showError } = useToast()
   const { isDark } = useSelector((state) => state.theme)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+  const [aiPromptValue, setAIPromptValue] = useState('')
+  const [commandPalettePosition, setCommandPalettePosition] = useState({ x: 0, y: 0 })
+  const [isLoading, setIsLoading] = useState(false)
+  const aiPromptRef = useRef(null)
+  const [isViewMode, setIsViewMode] = useState(false)
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -115,6 +123,26 @@ const SchemaGenerator = () => {
     setIsEditorReady(true)
     setEditorInstance(editor)
 
+    // Handle command execution
+    editor.onDidChangeModelContent((e) => {
+      const model = editor.getModel()
+      if (!model) return
+
+      const position = editor.getPosition()
+      const lineContent = model.getLineContent(position.lineNumber)
+      const beforeCursor = lineContent.substring(0, position.column - 1)
+
+      if (beforeCursor === '/') {
+        setShowAIPrompt(true)
+        // Focus the AI prompt input
+        setTimeout(() => {
+          if (aiPromptRef.current) {
+            aiPromptRef.current.focus()
+          }
+        }, 0)
+      }
+    })
+
     // Add custom SQL completions
     monaco.languages.registerCompletionItemProvider('sql', {
       provideCompletionItems: () => ({
@@ -145,33 +173,43 @@ const SchemaGenerator = () => {
       showError('Please describe your database schema requirements')
       return
     }
+  
     setIsGenerating(true)
-    // Simulate API call
-    setTimeout(() => {
-      setGeneratedSchema(`CREATE TABLE users (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  username VARCHAR(50) NOT NULL UNIQUE,
-  email VARCHAR(100) NOT NULL UNIQUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE orders (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  user_id INT NOT NULL,
-  total_amount DECIMAL(10,2) NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);`)
-      setOptimizationSuggestions([
-        'Consider adding an index on user_id in the orders table for faster lookups',
-        'Partitioning the orders table by created_at will improve OLAP queries',
-        'Adding a composite index on (user_id, created_at) will optimize common queries'
-      ])
+  
+    try {
+      const response = await sqlAPI.generateSchema(schemaDescription, selectedDialect)
+      console.log("response", response)
+      if (response.sucess) {
+        // Remove markdown code block markers and parse the JSON
+        const cleanSchema = response.schema.replace(/```json\n?|\n?```/g, '').trim()
+        console.log("Cleaned schema:", cleanSchema)
+        const schemaObj = JSON.parse(cleanSchema)
+        console.log("Parsed schema:", schemaObj)
+        
+        // Set the SQL query from the parsed object
+        setGeneratedSchema(schemaObj.sql_query)
+        setIsViewMode(true)
+  
+        // Optimization Suggestions
+        setOptimizationSuggestions([
+          'Consider adding an index on user_id in the orders table for faster lookups',
+          'Partitioning the orders table by created_at will improve OLAP queries',
+          'Adding a composite index on (user_id, created_at) will optimize common queries'
+        ])
+  
+        showSuccess('Schema generated successfully!')
+      } else {
+        throw new Error(response.message || 'Failed to generate schema')
+      }
+    } catch (error) {
+      showError('Failed to generate schema')
+      console.error('Failed to generate schema:', error)
+    } finally {
       setIsGenerating(false)
-      showSuccess('Schema generated successfully!')
-    }, 2000)
+    }
   }
+  
+  
 
   const handleExplainSchema = async () => {
     if (!generatedSchema.trim()) return
@@ -242,6 +280,59 @@ CREATE TABLE orders (
     URL.revokeObjectURL(url)
     showSuccess('Schema downloaded!')
   }
+
+  // Handle AI prompt submission
+  const handleAIPromptSubmit = async (e) => {
+    e.preventDefault()
+    if (!aiPromptValue.trim()) return
+
+    setIsLoading(true)
+    try {
+      const response = await sqlAPI.generateSchema(aiPromptValue, selectedDialect)
+      if (response.sucess) {
+        // Remove markdown code block markers and parse the JSON
+        const cleanSchema = response.schema.replace(/```json\n?|\n?```/g, '').trim()
+        console.log("Cleaned schema:", cleanSchema)
+        const schemaObj = JSON.parse(cleanSchema)
+        console.log("Parsed schema:", schemaObj)
+        
+        // Set the SQL query from the parsed object
+        setGeneratedSchema(schemaObj.sql_query)
+        setIsViewMode(true)
+        
+        setOptimizationSuggestions([
+          'Consider adding an index on user_id in the orders table for faster lookups',
+          'Partitioning the orders table by created_at will improve OLAP queries',
+          'Adding a composite index on (user_id, created_at) will optimize common queries'
+        ])
+        showSuccess('Schema generated successfully!')
+      } else {
+        throw new Error(response.message || 'Failed to generate schema')
+      }
+    } catch (error) {
+      showError('Failed to generate schema')
+      console.error('Failed to generate schema:', error)
+    } finally {
+      setIsLoading(false)
+      setShowAIPrompt(false)
+      setAIPromptValue('')
+    }
+  }
+
+  // Add keyboard event handler for AI prompt
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (showAIPrompt) {
+        if (e.key === 'Escape') {
+          setShowAIPrompt(false)
+          setAIPromptValue('')
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showAIPrompt])
 
   // Keyboard shortcuts modal
   const KeyboardShortcutsModal = () => (
@@ -373,189 +464,226 @@ CREATE TABLE orders (
                 </div>
               </div>
 
-              {/* Input Section */}
+              {/* Editor Section */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
                 className="bg-background p-4 lg:p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-200"
               >
-                <div className="flex flex-col space-y-4 mb-4">
-                  <h2 className="text-lg sm:text-xl font-semibold tracking-tight">Describe Your Schema</h2>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
-                    <div className="flex items-center space-x-2 w-full sm:w-auto">
-                      <label className="text-sm font-medium whitespace-nowrap">SQL Dialect:</label>
-                      <select
-                        value={selectedDialect}
-                        onChange={(e) => setSelectedDialect(e.target.value)}
-                        className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                      >
-                        {dialects.map(dialect => (
-                          <option key={dialect.id} value={dialect.id}>
-                            {dialect.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center space-x-2 px-4 py-1.5 bg-accent rounded-lg shadow-sm">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      <span className="text-sm">AI-Powered</span>
-                    </div>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-4 mb-4 lg:mb-0">
+                    <h2 className="text-xl font-semibold tracking-tight">
+                      {isViewMode ? 'Generated Schema' : 'Schema Description'}
+                    </h2>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setIsViewMode(false)}
+                      disabled={!isViewMode}
+                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
+                    >
+                      <Edit className="w-5 h-5" />
+                      <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
+                        Edit Description
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleExplainSchema}
+                      disabled={!schemaDescription || isExplaining}
+                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
+                    >
+                      <MessageSquare className="w-5 h-5" />
+                      <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
+                        Explain Schema
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleOptimizeSchema}
+                      disabled={!schemaDescription || isOptimizing}
+                      className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
+                    >
+                      <Zap className="w-5 h-5" />
+                      <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
+                        Optimize Schema
+                      </span>
+                    </button>
                   </div>
                 </div>
-                <div className="relative">
-                  <textarea
-                    value={schemaDescription}
-                    onChange={(e) => setSchemaDescription(e.target.value)}
-                    placeholder="Describe your database schema in plain English. For example: 'Create a blog database with users, posts, and comments tables'"
-                    className="w-full h-32 sm:h-40 p-4 text-base border border-border rounded-xl bg-accent text-foreground resize-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
-                  />
-                </div>
-                <button
-                  onClick={handleGenerateSchema}
-                  disabled={isGenerating || !schemaDescription.trim()}
-                  className="group w-full mt-4 px-5 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center justify-center space-x-3 transition-all duration-200 shadow-sm font-medium relative"
-                >
-                  {isGenerating ? (
-                    <LoadingSpinner />
-                  ) : (
-                    <>
-                      <Wand2 className="w-5 h-5" />
-                      <span>Generate Schema</span>
-                      <kbd className="absolute right-2 top-2 text-xs bg-primary-foreground/20 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                        ⌘/Ctrl + ↵
-                      </kbd>
-                    </>
+
+                <div className="relative min-h-[400px] rounded-xl overflow-hidden border border-border shadow-sm">
+                  {!isEditorReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+                      <LoadingSpinner />
+                    </div>
                   )}
-                </button>
+                  <Editor
+                    height="400px"
+                    defaultLanguage="sql"
+                    value={isViewMode ? generatedSchema : schemaDescription}
+                    onChange={isViewMode ? setGeneratedSchema : setSchemaDescription}
+                    theme={isDark ? "vs-dark" : "light"}
+                    onMount={handleEditorDidMount}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      padding: { top: 16, bottom: 16 },
+                      roundedSelection: true,
+                      automaticLayout: true,
+                      wordWrap: 'on',
+                      lineHeight: 1.5,
+                      folding: false,
+                      renderLineHighlight: 'all',
+                      smoothScrolling: true,
+                      cursorSmoothCaretAnimation: true,
+                      quickSuggestions: true,
+                      suggestOnTriggerCharacters: true,
+                      readOnly: isViewMode,
+                      scrollbar: {
+                        vertical: 'hidden',
+                        horizontal: 'hidden',
+                        verticalScrollbarSize: 0,
+                        horizontalScrollbarSize: 0
+                      }
+                    }}
+                  />
+
+                  {/* AI Prompt Input */}
+                  {showAIPrompt && (
+                    <div 
+                      className="absolute bg-background/95 backdrop-blur-sm border border-border shadow-lg z-50 w-full"
+                      style={{
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '0.75rem',
+                        borderTopRightRadius: '0.75rem',
+                        borderBottom: '1px solid var(--border)'
+                      }}
+                    >
+                      <form onSubmit={handleAIPromptSubmit} className="p-3">
+                        <div className="flex items-center justify-between space-x-4 mb-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 px-2 py-1 bg-accent/50 rounded-md">
+                              <Wand2 className="w-4 h-4 text-primary" />
+                              <span className="text-sm font-medium">AI Schema Generation</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <select
+                              value={selectedDialect}
+                              onChange={(e) => setSelectedDialect(e.target.value)}
+                              className="px-3 py-1.5 rounded-md border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                            >
+                              {dialects.map(dialect => (
+                                <option key={dialect.id} value={dialect.id}>
+                                  {dialect.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAIPrompt(false)
+                                setAIPromptValue('')
+                              }}
+                              className="p-1.5 hover:bg-accent rounded-md transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <span className="text-muted-foreground text-sm">/</span>
+                          </div>
+                          <input
+                            ref={aiPromptRef}
+                            type="text"
+                            value={aiPromptValue}
+                            onChange={(e) => setAIPromptValue(e.target.value)}
+                            placeholder="Describe your schema in natural language..."
+                            className="w-full pl-7 pr-24 py-2.5 bg-background text-foreground border border-border rounded-md focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
+                            autoFocus
+                          />
+                          <div className="absolute inset-y-0 right-2 flex items-center space-x-2">
+                            {isLoading ? (
+                              <div className="px-3">
+                                <LoadingSpinner />
+                              </div>
+                            ) : (
+                              <button
+                                type="submit"
+                                disabled={!aiPromptValue.trim()}
+                                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                              >
+                                <span>Generate</span>
+                                <kbd className="px-1.5 py-0.5 text-xs bg-primary-foreground/20 rounded">↵</kbd>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end text-xs text-muted-foreground mt-2">
+                          <p className="space-x-3">
+                            <span>Press Enter to generate schema</span>
+                            <span>·</span>
+                            <span>Press Esc to cancel</span>
+                          </p>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+                </div>
+
+                {!isViewMode && (
+                  <div className="flex justify-end mt-4">
+                    <button
+                      onClick={handleGenerateSchema}
+                      disabled={isGenerating || !schemaDescription.trim()}
+                      className="group px-6 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center space-x-3 transition-all duration-200 shadow-sm font-medium min-w-[150px] justify-center"
+                    >
+                      {isGenerating ? (
+                        <LoadingSpinner />
+                      ) : (
+                        <>
+                          <Wand2 className="w-5 h-5" />
+                          <span>Generate</span>
+                          <kbd className="absolute right-2 top-2 text-xs bg-primary-foreground/20 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                            ⌘/Ctrl + ↵
+                          </kbd>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </motion.div>
 
-              {/* Generated Schema Section */}
-              {generatedSchema && (
+              {/* Optimization Suggestions */}
+              {optimizationSuggestions.length > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-background p-4 lg:p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-200"
+                  className="p-4 lg:p-5 bg-accent rounded-lg shadow-sm"
                 >
-                  <div className="flex flex-col space-y-4 mb-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-                      <h2 className="text-lg sm:text-xl font-semibold tracking-tight mb-3 sm:mb-0">Generated Schema</h2>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={handleExplainSchema}
-                          disabled={!generatedSchema || isExplaining}
-                          className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
-                        >
-                          <MessageSquare className="w-5 h-5" />
-                          <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-                            Explain Schema
-                          </span>
-                        </button>
-                        <button
-                          onClick={handleOptimizeSchema}
-                          disabled={!generatedSchema || isOptimizing}
-                          className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
-                        >
-                          <Zap className="w-5 h-5" />
-                          <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-                            Optimize Schema
-                          </span>
-                        </button>
-                        <button
-                          onClick={handleCopySchema}
-                          className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
-                        >
-                          <Copy className="w-5 h-5" />
-                          <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-                            Copy to clipboard
-                          </span>
-                        </button>
-                        <button
-                          onClick={handleDownloadSchema}
-                          className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
-                        >
-                          <Download className="w-5 h-5" />
-                          <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-                            Download schema
-                          </span>
-                        </button>
-                        <button
-                          onClick={handleSaveSchema}
-                          className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
-                        >
-                          <Save className="w-5 h-5" />
-                          <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-                            Save schema
-                          </span>
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex items-center space-x-2 mb-3">
+                    <h3 className="text-sm font-medium">Optimization Suggestions</h3>
+                    <Info className="w-4 h-4 text-muted-foreground" />
                   </div>
-
-                  <div className="relative h-[300px] sm:h-[400px] lg:h-[500px] rounded-xl overflow-hidden border border-border shadow-sm">
-                    {!isEditorReady && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
-                        <LoadingSpinner />
-                      </div>
-                    )}
-                    <Editor
-                      height="100%"
-                      defaultLanguage="sql"
-                      value={generatedSchema}
-                      theme={isDark ? "vs-dark" : "light"}
-                      onMount={handleEditorDidMount}
-                      options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        lineNumbers: 'on',
-                        scrollBeyondLastLine: false,
-                        padding: { top: 16, bottom: 16 },
-                        roundedSelection: true,
-                        automaticLayout: true,
-                        wordWrap: 'on',
-                        lineHeight: 1.5,
-                        folding: false,
-                        renderLineHighlight: 'all',
-                        smoothScrolling: true,
-                        cursorSmoothCaretAnimation: true,
-                        quickSuggestions: true,
-                        suggestOnTriggerCharacters: true,
-                        scrollbar: {
-                          vertical: 'hidden',
-                          horizontal: 'hidden',
-                          verticalScrollbarSize: 0,
-                          horizontalScrollbarSize: 0
-                        }
-                      }}
-                    />
-                  </div>
-
-                  {/* Optimization Suggestions */}
-                  {optimizationSuggestions.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-4 lg:p-5 bg-accent rounded-lg shadow-sm"
-                    >
-                      <div className="flex items-center space-x-2 mb-3">
-                        <h3 className="text-sm font-medium">Optimization Suggestions</h3>
-                        <Info className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <ul className="space-y-2.5">
-                        {optimizationSuggestions.map((suggestion, index) => (
-                          <motion.li
-                            key={index}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className="flex items-start space-x-2.5 text-sm text-muted-foreground"
-                          >
-                            <Sparkles className="w-4 h-4 text-primary mt-0.5" />
-                            <span>{suggestion}</span>
-                          </motion.li>
-                        ))}
-                      </ul>
-                    </motion.div>
-                  )}
+                  <ul className="space-y-2.5">
+                    {optimizationSuggestions.map((suggestion, index) => (
+                      <motion.li
+                        key={index}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-start space-x-2.5 text-sm text-muted-foreground"
+                      >
+                        <Sparkles className="w-4 h-4 text-primary mt-0.5" />
+                        <span>{suggestion}</span>
+                      </motion.li>
+                    ))}
+                  </ul>
                 </motion.div>
               )}
             </div>

@@ -122,19 +122,16 @@ export const sqlAPI = {
     };
   },
 
-  generateSchema: async (description) => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    return {
-      data: {
-        schema: `CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);`,
-      },
-    };
+  generateSchema: async (description, dialect) => {
+    try {
+      const response = await api.post("/api/connection/schema/generate", {
+        description,
+        dialect,
+      });
+      return response.data;
+    } catch (error) {
+      throw handleAPIError(error);
+    }
   },
 
   translateQuery: async (query, from, to) => {

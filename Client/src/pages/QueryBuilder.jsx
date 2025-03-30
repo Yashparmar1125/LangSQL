@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import queryAutocomplete from "../services/autocomplete/trie";
 import { 
   Play, 
   Copy, 
@@ -60,8 +61,6 @@ const ConnectionStatus = ({ selectedDb, connections }) => {
 const QueryBuilder = () => {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const [input, setInput] = useState('')
-  const [output, setOutput] = useState('')
   const [selectedDb, setSelectedDb] = useState(null)
   const [selectedDialect, setSelectedDialect] = useState('postgresql')
   const [expandedSchemas, setExpandedSchemas] = useState({})
@@ -75,7 +74,6 @@ const QueryBuilder = () => {
   const { showSuccess, showError } = useToast()
   const { connections, activeConnection } = useSelector((state) => state.database)
   const { user } = useSelector((state) => state.auth)
-  const [aiMode, setAiMode] = useState('natural')
   const [explanation, setExplanation] = useState(null)
   const [optimization, setOptimization] = useState(null)
   const [isExplaining, setIsExplaining] = useState(false)
@@ -88,6 +86,93 @@ const QueryBuilder = () => {
   const [editorInstance, setEditorInstance] = useState(null)
   const [databaseMetadata, setDatabaseMetadata] = useState(null)
   const [promptHistory, setPromptHistory] = useState([])
+  const [suggestion, setSuggestion] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [inlineSuggestion, setInlineSuggestion] = useState('');
+  const inputRef = useRef(null);
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [commandPalettePosition, setCommandPalettePosition] = useState({ x: 0, y: 0 })
+  const [editorContent, setEditorContent] = useState('')
+  const [naturalLanguageInput, setNaturalLanguageInput] = useState('')
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+  const [aiPromptValue, setAIPromptValue] = useState('')
+  const aiPromptRef = useRef(null)
+
+  // Update useEffect to use naturalLanguageInput instead of input
+  useEffect(() => {
+    const getSuggestions = () => {
+      if (!naturalLanguageInput.trim()) {
+        setSuggestion([]);
+        setInlineSuggestion('');
+        return;
+      }
+
+      try {
+        const results = queryAutocomplete.getSuggestions(naturalLanguageInput);
+        console.log('Autocomplete suggestions:', results);
+        
+        const bestMatch = results.find(r => r.toLowerCase().startsWith(naturalLanguageInput.toLowerCase()));
+        if (bestMatch) {
+          setInlineSuggestion(bestMatch.slice(naturalLanguageInput.length));
+        } else {
+          setInlineSuggestion('');
+        }
+        
+        setSuggestion(results);
+        setSelectedIndex(-1);
+      } catch (error) {
+        console.error('Error getting suggestions:', error);
+        setSuggestion([]);
+        setInlineSuggestion('');
+      }
+    };
+
+    const timeoutId = setTimeout(getSuggestions, 100);
+    return () => clearTimeout(timeoutId);
+  }, [naturalLanguageInput]);
+
+  // Update handleKeyDown to use naturalLanguageInput
+  const handleKeyDown = (e) => {
+    if (inlineSuggestion) {
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        setNaturalLanguageInput(naturalLanguageInput + inlineSuggestion);
+        setInlineSuggestion('');
+        setSuggestion([]);
+        setSelectedIndex(-1);
+        return;
+      }
+    }
+
+    if (suggestion.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev + 1 < suggestion.length ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev - 1 >= 0 ? prev - 1 : suggestion.length - 1));
+    } else if (e.key === "Tab" || e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex !== -1) {
+        const selectedQuery = suggestion[selectedIndex];
+        console.log('Selected query:', selectedQuery); // Debug log
+        setNaturalLanguageInput(selectedQuery);
+        setSuggestion([]);
+        setInlineSuggestion('');
+        setSelectedIndex(-1);
+      }
+    }
+  };
+
+  // Update handleSelect
+  const handleSelect = (query) => {
+    console.log('Clicked query:', query);
+    setNaturalLanguageInput(query);
+    setSuggestion([]);
+    setInlineSuggestion('');
+    setSelectedIndex(-1);
+  };
 
   // Fetch database metadata when a connection is selected
   useEffect(() => {
@@ -118,6 +203,9 @@ const QueryBuilder = () => {
             lastUpdated: response.metadata.last_updated,
             createdAt: response.metadata.created_at
           });
+      //    console.log(databaseMetadata)
+        //  const buffer=await databaseAPI.getBufferQuestions(databaseMetadata)
+         // console.log(buffer)
         } else {
           throw new Error(response.message || 'Failed to fetch metadata');
         }
@@ -129,6 +217,22 @@ const QueryBuilder = () => {
 
     fetchDatabaseMetadata();
   }, [selectedDb, user?._id]);
+
+  useEffect(() => {
+    if (databaseMetadata) {
+      const fetchBuffer = async () => {
+        try {
+          const buffer = await databaseAPI.getBufferQuestions(databaseMetadata);
+          console.log(buffer);
+          localStorage.setItem("bufferData", JSON.stringify(buffer));
+        } catch (error) {
+          console.error('Error fetching buffer questions:', error);
+        }
+      };
+  
+      fetchBuffer();
+    }
+  }, [databaseMetadata]);
 
   // Fetch saved queries and execution history
   useEffect(() => {
@@ -170,13 +274,13 @@ const QueryBuilder = () => {
         switch (e.key.toLowerCase()) {
           case 'enter':
             e.preventDefault()
-            if (output.trim() && selectedDb && !isExecuting) {
+            if (editorContent.trim() && selectedDb && !isExecuting) {
               handleExecute()
             }
             break
           case 's':
             e.preventDefault()
-            if (output.trim()) {
+            if (editorContent.trim()) {
               handleSave()
             }
             break
@@ -192,31 +296,79 @@ const QueryBuilder = () => {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [output, selectedDb, isExecuting])
+  }, [editorContent, selectedDb, isExecuting])
 
-  // Editor ready handler
+  // Add Monaco editor command palette handling
   const handleEditorDidMount = (editor, monaco) => {
     setIsEditorReady(true)
     setEditorInstance(editor)
 
-    // Add custom SQL completions
-    monaco.languages.registerCompletionItemProvider('sql', {
-      provideCompletionItems: () => ({
-        suggestions: [
-          {
-            label: 'SELECT',
-            kind: monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'SELECT ',
-          },
-          {
-            label: 'FROM',
-            kind: monaco.languages.CompletionItemKind.Keyword,
-            insertText: 'FROM ',
-          },
-          // Add more SQL keywords as needed
-        ],
-      }),
+    // Handle command execution
+    editor.onDidType((text) => {
+      if (text === '/') {
+        const position = editor.getPosition()
+        const coords = editor.getScrolledVisiblePosition(position)
+        const editorDom = editor.getDomNode()
+        
+        if (editorDom) {
+          const rect = editorDom.getBoundingClientRect()
+          setCommandPalettePosition({
+            x: rect.left + coords.left,
+            y: rect.top + coords.top + 20
+          })
+          setShowAIPrompt(true)
+          // Focus the AI prompt input
+          setTimeout(() => {
+            if (aiPromptRef.current) {
+              aiPromptRef.current.focus()
+            }
+          }, 0)
+        }
+      }
     })
+
+    // Handle command selection
+    editor.onDidChangeModelContent((e) => {
+      const model = editor.getModel()
+      if (!model) return
+
+      e.changes.forEach(async (change) => {
+        const lineContent = model.getLineContent(change.range.startLineNumber)
+        if (lineContent.trim() === '/') {
+          // Remove the "/" character
+          editor.executeEdits('', [{
+            range: {
+              startLineNumber: change.range.startLineNumber,
+              startColumn: change.range.startColumn - 1,
+              endLineNumber: change.range.startLineNumber,
+              endColumn: change.range.startColumn
+            },
+            text: ''
+          }])
+        }
+      })
+    })
+  }
+
+  // Handle AI prompt submission
+  const handleAIPromptSubmit = async (e) => {
+    e.preventDefault()
+    if (!aiPromptValue.trim()) return
+
+    setIsLoading(true)
+    try {
+      const response = await sqlAPI.generateQuerry(aiPromptValue, selectedDialect, selectedDb)
+      if (response.success && editorInstance) {
+        editorInstance.setValue(response.data.sql_query)
+        showSuccess('Query generated successfully!')
+      }
+    } catch (error) {
+      showError('Failed to generate query')
+    } finally {
+      setIsLoading(false)
+      setShowAIPrompt(false)
+      setAIPromptValue('')
+    }
   }
 
   // Loading indicator component
@@ -319,26 +471,26 @@ const QueryBuilder = () => {
     if (connection) {
       setSelectedDialect(connection.type);
       showSuccess(`Connected to ${connection.name}`);
+      console.log("content:",databaseMetadata)
     }
   };
 
   const handleTableClick = (tableName) => {
-    setOutput(`SELECT * FROM ${tableName} LIMIT 100;`);
+    setEditorContent(`SELECT * FROM ${tableName} LIMIT 100;`);
   };
 
   const handleNaturalLanguageQuery = async () => {
-    if (!input.trim() || !selectedDb) {
+    if (!naturalLanguageInput.trim() || !selectedDb) {
       showError('Please enter a query and select a database')
       return
     }
     
     setIsLoading(true)
     try {
-      // TODO: Call your AI service to convert natural language to SQL
-      const response = await sqlAPI.generateQuerry(input, selectedDialect, selectedDb)
+      const response = await sqlAPI.generateQuerry(naturalLanguageInput, selectedDialect, selectedDb)
       
       const query = response.data.sql_query
-      setOutput(query)
+      setEditorContent(query)
       setSuggestions([
         'You might also want to include the total order value',
         'Consider adding a date range filter',
@@ -354,7 +506,7 @@ const QueryBuilder = () => {
   }
 
   const handleExplainQuery = async () => {
-    if (!output.trim()) return
+    if (!editorContent.trim()) return
     
     setIsExplaining(true)
     try {
@@ -379,14 +531,14 @@ const QueryBuilder = () => {
   }
 
   const handleOptimizeQuery = async () => {
-    if (!output.trim()) return
+    if (!editorContent.trim()) return
     
     setIsOptimizing(true)
     try {
       // TODO: Call your AI service to optimize the query
       await new Promise(resolve => setTimeout(resolve, 800))
       setOptimization({
-        optimizedQuery: output.replace('SELECT *', 'SELECT id, username, email'),
+        optimizedQuery: editorContent.replace('SELECT *', 'SELECT id, username, email'),
         improvements: [
           "Replaced SELECT * with specific columns",
           "Added index hint for better performance",
@@ -403,7 +555,7 @@ const QueryBuilder = () => {
   }
 
   const handleExecute = async () => {
-    if (!output.trim()) {
+    if (!editorContent.trim()) {
       showError('Please generate or write a SQL query first')
       return
     }
@@ -416,7 +568,7 @@ const QueryBuilder = () => {
     setIsExecuting(true)
     try {
       const response = await sqlAPI.executeQuery({
-        query: output,
+        query: editorContent,
         connectionId: selectedDb,
         dialect: selectedDialect
       })
@@ -457,7 +609,7 @@ const QueryBuilder = () => {
 
         // Add to execution history
         setExecutionHistory(prev => [{
-          query: output,
+          query: editorContent,
           timestamp: new Date(),
           metadata: metadata
         }, ...prev]);
@@ -475,13 +627,13 @@ const QueryBuilder = () => {
   }
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(output)
+    navigator.clipboard.writeText(editorContent)
     showSuccess('Query copied to clipboard!')
   }
 
   const handleSave = () => {
-    if (!output) return
-    setSavedQueries([...savedQueries, { query: output, timestamp: new Date() }])
+    if (!editorContent) return
+    setSavedQueries([...savedQueries, { query: editorContent, timestamp: new Date() }])
     showSuccess('Query saved successfully!')
   }
 
@@ -646,108 +798,7 @@ const QueryBuilder = () => {
                 </div>
               </div>
 
-              {/* Mode Toggle with Enhanced Feedback */}
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm py-4"
-              >
-                <div className="flex items-center space-x-4 bg-background p-1.5 rounded-lg border border-border shadow-sm">
-                  <button
-                    onClick={() => setAiMode('natural')}
-                    className={`flex items-center space-x-2 px-6 py-3 rounded-lg flex-1 justify-center transition-all duration-200 relative ${
-                      aiMode === 'natural'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'hover:bg-accent hover:shadow-sm'
-                    }`}
-                  >
-                    <Wand2 className="w-4 h-4" />
-                    <span>Natural Language</span>
-                    {aiMode === 'natural' && (
-                      <motion.div
-                        layoutId="mode-indicator"
-                        className="absolute inset-0 bg-primary rounded-lg -z-10"
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setAiMode('sql')}
-                    className={`flex items-center space-x-2 px-6 py-3 rounded-lg flex-1 justify-center transition-all duration-200 relative ${
-                      aiMode === 'sql'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'hover:bg-accent hover:shadow-sm'
-                    }`}
-                  >
-                    <Database className="w-4 h-4" />
-                    <span>SQL</span>
-                    {aiMode === 'sql' && (
-                      <motion.div
-                        layoutId="mode-indicator"
-                        className="absolute inset-0 bg-primary rounded-lg -z-10"
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* Input Section */}
-              {aiMode === 'natural' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-background p-4 lg:p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-200"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold tracking-tight mb-4 lg:mb-0">Describe your query</h2>
-                    <div className="flex flex-col lg:flex-row items-start lg:items-center space-y-3 lg:space-y-0 lg:space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <label className="text-sm font-medium">SQL Dialect:</label>
-                        <select
-                          value={selectedDialect}
-                          onChange={(e) => setSelectedDialect(e.target.value)}
-                          className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                        >
-                          {dialects.map(dialect => (
-                            <option key={dialect.id} value={dialect.id}>
-                              {dialect.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex items-center space-x-2 px-4 py-1.5 bg-accent rounded-lg shadow-sm">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        <span className="text-sm">AI-Powered</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Describe what you want to query in plain English. For example: 'Show me all users who have placed more than 5 orders'"
-                      className="w-full h-32 lg:h-40 p-4 text-base border border-border rounded-xl bg-accent text-foreground resize-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
-                  <button
-                    onClick={handleNaturalLanguageQuery}
-                    disabled={isLoading || !input.trim() || !selectedDb}
-                    className="w-full mt-4 px-5 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center justify-center space-x-3 transition-all duration-200 shadow-sm font-medium"
-                  >
-                    {isLoading ? (
-                      <LoadingSpinner />
-                    ) : (
-                      <>
-                        <Wand2 className="w-5 h-5" />
-                        <span>Generate SQL</span>
-                      </>
-                    )}
-                  </button>
-                </motion.div>
-              )}
-
-              {/* SQL Editor Section */}
+              {/* Single Editor Section */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -762,27 +813,27 @@ const QueryBuilder = () => {
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handleExplainQuery}
-                      disabled={!output || isExplaining}
+                      disabled={!editorContent || isExplaining}
                       className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <MessageSquare className="w-5 h-5" />
                       <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-                        Explain Query
+                        Explain Query (/explain)
                       </span>
                     </button>
                     <button
                       onClick={handleOptimizeQuery}
-                      disabled={!output || isOptimizing}
+                      disabled={!editorContent || isOptimizing}
                       className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <Zap className="w-5 h-5" />
                       <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-background text-foreground text-xs py-1 px-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-border">
-                        Optimize Query
+                        Optimize Query (/optimize)
                       </span>
                     </button>
                     <button
                       onClick={handleCopy}
-                      disabled={!output}
+                      disabled={!editorContent}
                       className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <Copy className="w-5 h-5" />
@@ -792,7 +843,7 @@ const QueryBuilder = () => {
                     </button>
                     <button
                       onClick={handleSave}
-                      disabled={!output}
+                      disabled={!editorContent}
                       className="p-2.5 hover:bg-accent rounded-lg transition-all duration-200 disabled:opacity-50 group relative"
                     >
                       <Save className="w-5 h-5" />
@@ -803,17 +854,17 @@ const QueryBuilder = () => {
                   </div>
                 </div>
 
-                <div className="relative min-h-[200px] max-h-[400px] rounded-xl overflow-hidden border border-border shadow-sm">
+                <div className="relative min-h-[400px] rounded-xl overflow-hidden border border-border shadow-sm">
                   {!isEditorReady && (
                     <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
                       <LoadingSpinner />
                     </div>
                   )}
                   <Editor
-                    height="200px"
+                    height="400px"
                     defaultLanguage="sql"
-                    value={output}
-                    onChange={setOutput}
+                    value={editorContent}
+                    onChange={setEditorContent}
                     theme={isDark ? "vs-dark" : "light"}
                     onMount={handleEditorDidMount}
                     options={{
@@ -840,39 +891,140 @@ const QueryBuilder = () => {
                       }
                     }}
                   />
+
+                  {/* AI Prompt Input */}
+                  {showAIPrompt && (
+                    <div 
+                      className="absolute bg-background/95 backdrop-blur-sm border border-border shadow-lg z-50 w-full"
+                      style={{
+                        left: 0,
+                        top: 0,
+                        borderTopLeftRadius: '0.75rem',
+                        borderTopRightRadius: '0.75rem',
+                        borderBottom: '1px solid var(--border)'
+                      }}
+                    >
+                      <form onSubmit={handleAIPromptSubmit} className="p-3">
+                        <div className="flex items-center justify-between space-x-4 mb-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 px-2 py-1 bg-accent/50 rounded-md">
+                              <Wand2 className="w-4 h-4 text-primary" />
+                              <span className="text-sm font-medium">AI Query Generation</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <select
+                              value={selectedDialect}
+                              onChange={(e) => setSelectedDialect(e.target.value)}
+                              className="px-3 py-1.5 rounded-md border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                            >
+                              {dialects.map(dialect => (
+                                <option key={dialect.id} value={dialect.id}>
+                                  {dialect.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAIPrompt(false)
+                                setAIPromptValue('')
+                              }}
+                              className="p-1.5 hover:bg-accent rounded-md transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                            <span className="text-muted-foreground text-sm">/</span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              ref={aiPromptRef}
+                              type="text"
+                              value={aiPromptValue}
+                              onChange={(e) => {
+                                setAIPromptValue(e.target.value);
+                                // Get suggestions when input changes
+                                const suggestions = queryAutocomplete.getSuggestions(e.target.value);
+                                if (suggestions.length > 0) {
+                                  const bestMatch = suggestions.find(s => 
+                                    s.toLowerCase().startsWith(e.target.value.toLowerCase())
+                                  );
+                                  if (bestMatch) {
+                                    setInlineSuggestion(bestMatch.slice(e.target.value.length));
+                                  } else {
+                                    setInlineSuggestion('');
+                                  }
+                                } else {
+                                  setInlineSuggestion('');
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (inlineSuggestion) {
+                                  if (e.key === "Tab" || e.key === "Enter") {
+                                    e.preventDefault();
+                                    setAIPromptValue(aiPromptValue + inlineSuggestion);
+                                    setInlineSuggestion('');
+                                    return;
+                                  }
+                                }
+                              }}
+                              placeholder="Describe your query in natural language..."
+                              className="w-full pl-7 pr-24 py-2.5 bg-background text-foreground border border-border rounded-md focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
+                              autoFocus
+                            />
+                            {inlineSuggestion && (
+                              <div className="absolute inset-0 pointer-events-none">
+                                <span className="pl-7 text-muted-foreground/50">
+                                  {aiPromptValue}
+                                  <span className="text-muted-foreground">{inlineSuggestion}</span>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="absolute inset-y-0 right-2 flex items-center space-x-2">
+                            {isLoading ? (
+                              <div className="px-3">
+                                <LoadingSpinner />
+                              </div>
+                            ) : (
+                              <button
+                                type="submit"
+                                disabled={!aiPromptValue.trim()}
+                                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                              >
+                                <span>Generate</span>
+                                <kbd className="px-1.5 py-0.5 text-xs bg-primary-foreground/20 rounded">↵</kbd>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
+                          <p className="space-x-3">
+                            <span>Press Enter to generate SQL</span>
+                            <span>·</span>
+                            <span>Press Esc to cancel</span>
+                          </p>
+                          {inlineSuggestion && (
+                            <p className="flex items-center space-x-1">
+                              <span>Press Tab to complete</span>
+                              <kbd className="px-1.5 py-0.5 text-xs bg-background text-foreground rounded">Tab</kbd>
+                            </p>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mt-4 space-y-4 lg:space-y-0">
-                  {suggestions.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex-1 mr-6 p-4 lg:p-5 bg-accent rounded-lg shadow-sm"
-                    >
-                      <div className="flex items-center space-x-2 mb-3">
-                        <h3 className="text-sm font-medium">AI Suggestions</h3>
-                        <Info className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <ul className="space-y-2.5">
-                        {suggestions.map((suggestion, index) => (
-                          <motion.li
-                            key={index}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className="flex items-start space-x-2.5 text-sm text-muted-foreground"
-                          >
-                            <Sparkles className="w-4 h-4 text-primary mt-0.5" />
-                            <span>{suggestion}</span>
-                          </motion.li>
-                        ))}
-                      </ul>
-                    </motion.div>
-                  )}
+                <div className="flex justify-end mt-4">
                   <button
                     onClick={handleExecute}
-                    disabled={isExecuting || !output.trim() || !selectedDb}
-                    className="group px-6 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center space-x-3 transition-all duration-200 shadow-sm font-medium min-w-[150px] justify-center sticky bottom-4 lg:static relative"
+                    disabled={isExecuting || !editorContent.trim() || !selectedDb}
+                    className="group px-6 py-3.5 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground rounded-lg flex items-center space-x-3 transition-all duration-200 shadow-sm font-medium min-w-[150px] justify-center"
                   >
                     {isExecuting ? (
                       <LoadingSpinner />
@@ -989,7 +1141,7 @@ const QueryBuilder = () => {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
                         className="p-4 bg-accent rounded-lg cursor-pointer hover:bg-accent/90 transition-all duration-200 border border-border hover:shadow-md"
-                        onClick={() => setInput(item.prompt)}
+                        onClick={() => setEditorContent(item.prompt)}
                       >
                         <p className="text-sm text-foreground mb-2 line-clamp-2">{item.prompt}</p>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1021,7 +1173,7 @@ const QueryBuilder = () => {
                   </div>
                   <div className="space-y-3">
                     {[...executionHistory, ...(results ? [{
-                      query: output,
+                      query: editorContent,
                       timestamp: new Date(),
                       response: {
                         metadata: results.metadata

@@ -727,4 +727,6 @@ const DatabaseVisualization = () => {
   )
 }
 
+
 export default DatabaseVisualization
+
