@@ -11,8 +11,8 @@ LangSQL is an advanced web application that leverages artificial intelligence to
 
 ## Architecture
 
-### 1. Frontend (React + TypeScript)
-- Modern React 18 application with TypeScript
+### 1. Frontend (React + JavaScript)
+- Modern React 18 application with JavaScript
 - Real-time query building and execution
 - Interactive data visualization
 - Responsive and accessible UI
@@ -68,7 +68,7 @@ LangSQL is an advanced web application that leverages artificial intelligence to
 ## Tech Stack
 
 ### Frontend
-- React 18 with TypeScript
+- React 18 with JavaScript
 - Vite for build tooling
 - TailwindCSS for styling
 - Monaco Editor for code editing
