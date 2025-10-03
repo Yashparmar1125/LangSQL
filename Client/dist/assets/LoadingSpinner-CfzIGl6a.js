@@ -1,0 +1,1 @@
+import{j as e}from"./index-6Jt9SLIF.js";const r=()=>e.jsxs("div",{className:"flex items-center justify-center space-x-2",children:[e.jsx("div",{className:"w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"}),e.jsx("span",{className:"text-sm",children:"Processing..."})]});export{r as default};
