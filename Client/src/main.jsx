@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 import { store, persistor } from './redux/store'
+import { Analytics } from "@vercel/analytics/react"
 import App from './App'
 import './index.css'
 
@@ -21,6 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <PersistGate loading={null} persistor={persistor}>
         <BrowserRouter {...router}>
           <App />
+          <Analytics />
         </BrowserRouter>
       </PersistGate>
     </Provider>

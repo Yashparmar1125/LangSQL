@@ -5,6 +5,7 @@ import AuthInit from './components/auth/AuthInit'
 import { PersistGate } from 'redux-persist/integration/react'
 import { persistor } from './redux/store'
 
+
 // Pages
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
@@ -74,6 +75,7 @@ const App = () => {
       <AuthInit>
         <ToastProvider>
           <Routes>
+            
             {/* Public Routes - Always accessible */}
             <Route path="/" element={<Landing />} />
             <Route path="/about" element={<About />} />
