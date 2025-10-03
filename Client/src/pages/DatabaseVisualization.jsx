@@ -235,8 +235,8 @@ const DatabaseVisualization = () => {
   // Generate random data for Index Efficiency Bubble Chart
   const generateIndexEfficiencyData = () => {
     return {
-      datasets: [
-        {
+    datasets: [
+      {
           label: 'Primary Indexes',
           data: [
             { x: randomIntInRange(80, 100), y: randomInRange(7.0, 9.5), r: randomIntInRange(12, 18) },
@@ -244,7 +244,7 @@ const DatabaseVisualization = () => {
             { x: randomIntInRange(65, 85), y: randomInRange(4.0, 5.5), r: randomIntInRange(8, 12) },
           ],
           backgroundColor: 'rgba(59, 130, 246, 0.6)',
-          borderColor: 'rgb(59, 130, 246)',
+        borderColor: 'rgb(59, 130, 246)',
         },
         {
           label: 'Secondary Indexes',
@@ -254,7 +254,7 @@ const DatabaseVisualization = () => {
             { x: randomIntInRange(35, 55), y: randomInRange(1.0, 2.0), r: randomIntInRange(3, 6) },
           ],
           backgroundColor: 'rgba(16, 185, 129, 0.6)',
-          borderColor: 'rgb(16, 185, 129)',
+        borderColor: 'rgb(16, 185, 129)',
         },
         {
           label: 'Custom Indexes',
@@ -264,9 +264,9 @@ const DatabaseVisualization = () => {
           ],
           backgroundColor: 'rgba(245, 158, 11, 0.6)',
           borderColor: 'rgb(245, 158, 11)',
-        },
-      ],
-    }
+      },
+    ],
+  }
   }
 
   // Generate random data for Lock Wait Analysis
@@ -728,5 +728,5 @@ const DatabaseVisualization = () => {
 }
 
 
-export default DatabaseVisualization
+export default DatabaseVisualization 
 

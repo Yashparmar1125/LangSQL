@@ -58,7 +58,9 @@ export const register = async (req, res) => {
       .cookie("token", token, {
         maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day
         httpOnly: true, // Prevents access to cookie via JavaScript
-        sameSite: "strict", // Ensures cookies are sent only in same-origin requests
+        sameSite: process.env.COOKIE_SAMESITE || "strict", // Ensures cookies are sent only in same-origin requests
+        secure:
+          String(process.env.COOKIE_SECURE || "false").toLowerCase() === "true",
       })
       .json({
         message: "Registered in successfully",
@@ -104,7 +106,9 @@ export const login = async (req, res) => {
       .cookie("token", token, {
         maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day
         httpOnly: true, // Prevents access to cookie via JavaScript
-        sameSite: "strict", // Ensures cookies are sent only in same-origin requests
+        sameSite: process.env.COOKIE_SAMESITE || "strict", // Ensures cookies are sent only in same-origin requests
+        secure:
+          String(process.env.COOKIE_SECURE || "false").toLowerCase() === "true",
       })
       .json({
         message: "Logged in successfully",
@@ -198,7 +202,9 @@ export const socialAuth = async (req, res) => {
       .cookie("token", token, {
         maxAge: 1 * 24 * 60 * 60 * 1000, // 1 day
         httpOnly: true,
-        sameSite: "strict",
+        sameSite: process.env.COOKIE_SAMESITE || "strict",
+        secure:
+          String(process.env.COOKIE_SECURE || "false").toLowerCase() === "true",
       })
       .json({
         message: isNewUser ? "Registration successful" : "Login successful",

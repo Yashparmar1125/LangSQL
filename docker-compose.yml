@@ -1,0 +1,56 @@
+version: "3.9"
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  drf:
+    build: ./DRF-Server
+    restart: unless-stopped
+    environment:
+      - SECRET_KEY=${DRF_SECRET_KEY}
+      - DEBUG=false
+      - ALLOWED_HOSTS=*
+      - DB_HOST=mongodb://mongo:27017
+      - CORS_ALLOW_ALL=True
+    depends_on:
+      - mongo
+    ports:
+      - "8000:8000"
+
+  server:
+    build: ./Server
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongo:27017/LangSQL
+      - JWT_SECRET=${JWT_SECRET}
+      - SALT=${SALT}
+      - CORS_ORIGINS=http://localhost:5173
+      - COOKIE_SECURE=true
+      - COOKIE_SAMESITE=strict
+      - DRF_SERVER_HOST=http://drf:8000/
+      - DRF_SERVICE_TOKEN=${DRF_SERVICE_TOKEN}
+    depends_on:
+      - mongo
+      - drf
+    ports:
+      - "3000:3000"
+
+  client:
+    build: ./Client
+    restart: unless-stopped
+    environment:
+      - VITE_API_BASE=http://localhost:3000/api
+    depends_on:
+      - server
+    ports:
+      - "5173:80"
+
+volumes:
+  mongo_data:
