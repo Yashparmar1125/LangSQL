@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from RESTAPI.llm_model import text_to_sql  # SQL generation function
 from RESTAPI.schema_parser import convert_schema_to_model_format, convert_mongo_metadata_to_json  # Schema conversion
 from bson import ObjectId
+from django.http import JsonResponse
 
 
 # Load environment variables
@@ -78,3 +79,8 @@ class GenerateSQLView(APIView):
         finally:
             # Close MongoDB connection
             mongo_client.close()
+
+
+class HealthView(APIView):
+    def get(self, request):
+        return JsonResponse({"status": "ok"})

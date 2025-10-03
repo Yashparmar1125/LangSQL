@@ -12,6 +12,18 @@ const ddlRegex = /^\s*(CREATE|ALTER|DROP|TRUNCATE|RENAME|COMMENT)\s+/i;
 export const executeDBQuery = async (req, res) => {
   try {
     const { query, connectionId, dialect } = req.body;
+    if (!query || typeof query !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Query is required",
+      });
+    }
+    if (!connectionId) {
+      return res.status(400).json({
+        success: false,
+        message: "connectionId is required",
+      });
+    }
     const userId = req.user.userId;
 
     const connection = await Connection.findOne({
@@ -26,9 +38,19 @@ export const executeDBQuery = async (req, res) => {
       });
     }
 
-    const decryptedConnection = decryptData(connection.connectionData, userId);
+    let decryptedConnection;
+    try {
+      decryptedConnection = decryptData(connection.connectionData, userId);
+    } catch (e) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid or outdated connection data. Please re-connect your database.",
+      });
+    }
+
     const body = {
-      dbType: decryptedConnection.type,
+      dbType: String(decryptedConnection.type || "").toLowerCase(),
       username: decryptedConnection.username,
       password: decryptedConnection.password,
       host: decryptedConnection.host,
@@ -40,8 +62,9 @@ export const executeDBQuery = async (req, res) => {
     const result = await executeQuery(body);
 
     // Convert execution time from string (e.g., "3ms") to number (milliseconds)
-    const executionTimeStr = result.data?.metadata?.executionTime || "0ms";
-    const responseTime = parseInt(executionTimeStr.replace(/[^0-9]/g, ""));
+    const executionTimeStr = result?.data?.metadata?.executionTime || "0ms";
+    const responseTime =
+      parseInt(String(executionTimeStr).replace(/[^0-9]/g, "")) || 0;
 
     // if (ddlRegex.test(query)) {
     //   const metadata = await extractMetadata(decryptedConnection);
@@ -64,9 +87,9 @@ export const executeDBQuery = async (req, res) => {
       dbName: decryptedConnection.database,
       error: result.success ? "" : result.message || "Query execution failed",
       response: result.data,
-      responseTime: responseTime,
-      rows: Number(result.data?.metadata?.rowCount || 0),
-      affectedRows: Number(result.data?.metadata?.affectedRows || 0),
+      responseTime: String(responseTime),
+      rows: String(result?.data?.metadata?.rowCount ?? 0),
+      affectedRows: String(result?.data?.metadata?.affectedRows ?? 0),
     });
 
     return res.status(result.success ? 200 : 500).json({
@@ -75,6 +98,9 @@ export const executeDBQuery = async (req, res) => {
         ? "Query executed successfully"
         : "Query execution failed",
       data: result.data,
+      ...(result.success
+        ? {}
+        : { error: result.message || `Unknown error (dbType=${body.dbType})` }),
     });
   } catch (error) {
     // Log error for debugging but send safe message to client
@@ -124,7 +150,6 @@ export const generateQuery = async (req, res) => {
 
     const token = process.env.DRF_SERVICE_TOKEN;
     const host = process.env.DRF_SERVER_HOST;
-
 
     if (!token || !host) {
       return res.status(500).json({

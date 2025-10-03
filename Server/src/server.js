@@ -54,20 +54,22 @@ firebaseAdmin.initializeApp({
 });
 
 //constants
+const parseOrigins = (csv) =>
+  (csv || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+const CORS_ALLOWED = parseOrigins(process.env.CORS_ORIGINS);
 const CORS_OPTIONS = {
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      "http://192.168.0.104:5173", // Your React app's IP and port
-      "http://localhost:5173",
-    ];
-
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true); // Accept the request
+    if (!origin || CORS_ALLOWED.includes(origin)) {
+      callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS")); // Reject the request
+      callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true, // Allow cookies or other credentials to be sent
+  credentials: true,
 };
 
 const limiter = rateLimit({

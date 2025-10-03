@@ -39,9 +39,11 @@ const mySqlExecution = async ({
       },
     };
   } catch (error) {
+    const message =
+      (error && (error.message || error.code)) || "MySQL execution error";
     return {
       success: false,
-      message: error.message,
+      message,
       data: null,
     };
   } finally {
