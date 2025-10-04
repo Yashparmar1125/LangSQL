@@ -810,13 +810,13 @@ const Landing = () => {
     {
       content: "LangSQL has revolutionized how we write and optimize our database queries. It's like having a SQL expert right at your fingertips.",
       author: 'Pratik Pujari',
-      role: 'Senior Developer @ Google Inc.',
+      role: 'Senior Developer @ LangSQL.',
       avatar: '/pratik.png',
     },
     {
       content: 'The AI-powered schema design feature saved us countless hours during our database restructuring project.',
       author: 'Jyotsna Kasibhotla',
-      role: 'Lead Engineer @ Amazon India',
+      role: 'Lead Engineer @ LangSQL',
       avatar: '/jyotsna.png',
     },
     {
