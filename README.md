@@ -7,7 +7,7 @@
 
 ## Overview
 
-LangSQL is an advanced web application that leverages artificial intelligence to help developers generate, translate, and optimize SQL queries. It features a modern three-tier architecture with a React frontend and two specialized backend servers - one for query processing and another for AI-powered natural language understanding.
+LangSQL is an advanced web application that leverages artificial intelligence to help developers generate, translate, and optimize SQL queries. It features a modern three-tier architecture with a React frontend and two specialized backend servers - one for query processing and another for AI-powered natural language understanding..
 
 ## Architecture
 
