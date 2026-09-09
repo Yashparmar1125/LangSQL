@@ -4,5 +4,11 @@
       "NODE_VERSION": "20",
       "ROLLUP_SKIP_NODEJS_NATIVE": "true"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

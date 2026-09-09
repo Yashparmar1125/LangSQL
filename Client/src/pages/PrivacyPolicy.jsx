@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ShieldCheck, Lock, Eye, FileText, CheckCircle2 } from 'lucide-react'
+import { ShieldCheck, Lock, Eye, FileText, CheckCircle2, UserCheck, Key, Database, RefreshCw, Mail } from 'lucide-react'
 import LandingNavbar from '../components/layout/LandingNavbar'
 import { Link } from 'react-router-dom'
 
@@ -19,13 +19,13 @@ const PrivacyPolicy = () => {
           <div className="relative text-center space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 dark:bg-[#00E5FF]/10 border border-blue-500/20 dark:border-[#00E5FF]/20 text-xs font-semibold text-blue-600 dark:text-[#00E5FF]">
               <ShieldCheck className="w-4 h-4" />
-              <span>Legal & Transparency</span>
+              <span>Official Privacy Policy</span>
             </div>
             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-200 dark:to-gray-400 bg-clip-text text-transparent">
               Privacy Policy
             </h1>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-              Last Updated: March 2025
+              Effective Date: March 10, 2025 | Domain: https://langsql.yashparmar.in
             </p>
           </div>
 
@@ -35,44 +35,54 @@ const PrivacyPolicy = () => {
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Lock className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
-                1. Overview & Commitment
+                1. Introduction & Ownership
               </h2>
               <p>
-                At <strong>LangSQL</strong> ("we", "our", or "us"), we prioritize your privacy and data security. 
-                This Privacy Policy outlines how your personal information, database metadata, and natural language prompts are collected, 
-                processed, and safeguarded when using our application at <span className="text-blue-600 dark:text-[#00E5FF]">langsql.yashparmar.in</span>.
+                This Privacy Policy governs the manner in which <strong>LangSQL</strong> ("the Application", "we", "us", or "our", operated by Yash Parmar at <span className="text-blue-600 dark:text-[#00E5FF] font-medium">https://langsql.yashparmar.in</span>) collects, uses, maintains, and discloses information collected from users ("User", "you") of the LangSQL website and software service.
+              </p>
+              <p>
+                By signing in, accessing, or creating database connections on LangSQL, you acknowledge that you have read and agreed to the practices described in this document.
               </p>
             </section>
 
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Eye className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
-                2. Information We Collect
+                <UserCheck className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
+                2. User Account Data & Google OAuth Scopes
               </h2>
+              <p>When you sign up or authenticate with Google Sign-In, we request access only to your standard basic profile:</p>
               <ul className="list-disc list-inside space-y-2 pl-2">
-                <li>
-                  <strong className="text-gray-900 dark:text-white">Account Information:</strong> Name, email address, and authentication credentials provided via Firebase Authentication or Google OAuth.
-                </li>
-                <li>
-                  <strong className="text-gray-900 dark:text-white">Database Credentials & Connection Strings:</strong> Connection strings (hosts, ports, usernames, passwords) are encrypted client-side and server-side using industry-standard <strong>AES-256 encryption</strong> before being stored in our database.
-                </li>
-                <li>
-                  <strong className="text-gray-900 dark:text-white">Database Schema Metadata:</strong> Table names, column types, and structural definitions extracted solely for AI query context generation.
-                </li>
-                <li>
-                  <strong className="text-gray-900 dark:text-white">Prompt & Execution Logs:</strong> Natural language prompts submitted to the AI and generated query outputs, used for query history and debugging.
-                </li>
+                <li><strong className="text-gray-900 dark:text-white">Email Address:</strong> Used strictly to identify your account, send account verification, and maintain your secure session.</li>
+                <li><strong className="text-gray-900 dark:text-white">Name & Profile Picture:</strong> Used solely to display your avatar and personal greeting within the dashboard.</li>
+                <li><strong className="text-gray-900 dark:text-white">Limited Use Disclosure:</strong> LangSQL's use and transfer of information received from Google APIs to any other app will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 dark:text-[#00E5FF]">Google API Services User Data Policy</a>, including the Limited Use requirements. We never sell, rent, or transfer your Google profile data to third-party advertising networks.</li>
               </ul>
             </section>
 
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
-                3. We Never Store Your Raw Database Records
+                <Key className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
+                3. Database Credentials & Encryption
               </h2>
-              <div className="p-4 rounded-xl bg-blue-500/5 dark:bg-[#00E5FF]/5 border border-blue-500/20 dark:border-[#00E5FF]/20">
-                <p className="font-medium text-gray-900 dark:text-white">
-                  <strong>Zero-Data Storage Guarantee:</strong> LangSQL only queries your schema structure (DDL) to understand relationships. We never store, export, or train proprietary foundation models on your internal database records or query results.
+              <p>
+                To provide natural language to SQL translation and execution, Users may connect database endpoints (e.g., PostgreSQL, MySQL, Trino, Spark).
+              </p>
+              <ul className="list-disc list-inside space-y-2 pl-2">
+                <li><strong className="text-gray-900 dark:text-white">AES-256 Encryption:</strong> Database hostnames, ports, usernames, and passwords are encrypted using strong AES-256 encryption both client-side and server-side before resting in our MongoDB databases.</li>
+                <li><strong className="text-gray-900 dark:text-white">Least-Privilege Recommendation:</strong> We strongly advise users to supply read-only database credentials whenever connecting production databases.</li>
+              </ul>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Database className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
+                4. Database Metadata vs. Actual Records
+              </h2>
+              <div className="p-4 rounded-xl bg-blue-500/5 dark:bg-[#00E5FF]/5 border border-blue-500/20 dark:border-[#00E5FF]/20 space-y-2">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  Zero Data Extraction Policy
+                </p>
+                <p>
+                  LangSQL extracts only structural <strong>metadata (DDL)</strong>: table names, column names, foreign keys, and column data types. We <strong>never store, copy, download, or train AI models</strong> on your actual database rows, customer PII, or internal database records.
                 </p>
               </div>
             </section>
@@ -80,32 +90,45 @@ const PrivacyPolicy = () => {
             <section className="space-y-3">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
-                4. Third-Party Service Providers
+                5. AI Processing & Third-Party Providers
               </h2>
-              <p>We work with trusted external infrastructure services to operate LangSQL:</p>
+              <p>To provide high-accuracy natural language query assistance, the following processors are utilized:</p>
               <ul className="list-disc list-inside space-y-1.5 pl-2">
-                <li><strong>Firebase Authentication (Google Cloud):</strong> Identity management and secure user authorization.</li>
-                <li><strong>OpenRouter / Hugging Face:</strong> High-performance LLMs for converting questions into optimized SQL queries. Prompts only include table metadata and the user question.</li>
-                <li><strong>MongoDB Atlas:</strong> Secure cloud storage for user account states and encrypted credentials.</li>
-                <li><strong>Vercel:</strong> Static and edge hosting for our client frontend.</li>
+                <li><strong>OpenRouter API / Large Language Models:</strong> Natural language questions and table metadata are transmitted via encrypted HTTPS to generate structured SQL queries.</li>
+                <li><strong>Firebase Authentication (Google Cloud):</strong> Authentication provider for token verification and user state.</li>
+                <li><strong>MongoDB Atlas:</strong> Managed database for storing encrypted connection configs and query history.</li>
+                <li><strong>Vercel:</strong> Static front-end hosting and CDN delivery.</li>
               </ul>
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">5. Cookies & Local Storage</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
+                6. Data Retention & User Rights
+              </h2>
               <p>
-                We use secure HTTP-only cookies and local browser storage to manage user authentication sessions and user interface preferences (such as dark/light theme). We do not use intrusive cross-site tracking cookies.
+                You retain complete ownership over your data. You have the right to:
               </p>
+              <ul className="list-disc list-inside space-y-1.5 pl-2">
+                <li>Delete any connected database configuration at any time from your <em>Manage Databases</em> panel, which immediately destroys the encrypted credentials.</li>
+                <li>Clear query execution history and session logs.</li>
+                <li>Request permanent account deletion and associated metadata removal.</li>
+              </ul>
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">6. Contact & Data Deletion</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Mail className="w-5 h-5 text-blue-500 dark:text-[#00E5FF]" />
+                7. Contact Us
+              </h2>
               <p>
-                You may request account deletion and removal of all saved database connections at any time directly through your account settings or by emailing:
+                If you have questions regarding this Privacy Policy, your personal information, or wish to verify domain ownership details, please contact:
               </p>
-              <p className="text-blue-600 dark:text-[#00E5FF] font-semibold">
-                support@langsql.yashparmar.in
-              </p>
+              <div className="p-4 rounded-xl bg-gray-100 dark:bg-[#1A1A1E] text-gray-800 dark:text-gray-200 space-y-1">
+                <p><strong>Maintainer:</strong> Yash Parmar</p>
+                <p><strong>Email:</strong> <a href="mailto:admin@yashparmar.in" className="text-blue-600 dark:text-[#00E5FF] underline">admin@yashparmar.in</a></p>
+                <p><strong>Website:</strong> <a href="https://langsql.yashparmar.in" className="text-blue-600 dark:text-[#00E5FF] underline">https://langsql.yashparmar.in</a></p>
+              </div>
             </section>
 
           </div>
