@@ -39,6 +39,7 @@ jobs:
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
             echo "SALT=${{ secrets.SALT }}" >> .env
             echo "DRF_SERVICE_TOKEN=${{ secrets.DRF_SERVICE_TOKEN }}" >> .env
+            echo "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" >> .env
             
             # Restart docker containers
-            docker compose -f docker-compose.prod.yml up -d --build
+            sudo docker compose -f docker-compose.prod.yml up -d --build
