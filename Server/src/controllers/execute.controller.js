@@ -152,48 +152,86 @@ export const generateQuery = async (req, res) => {
       });
     }
 
+    let sqlQuery = null;
+    let originalDrfQuery = null;
+    let wasModified = false;
+    let confidenceScore = 0.95;
+
+    // 1. First attempt generation directly via OpenRouter (fast, high-throughput, never OOMs)
+    if (process.env.OPENROUTER_API_KEY) {
+      try {
+        const openRouterRes = await generateSQLWithOpenRouter(req.body, cleanedMetaData);
+        if (openRouterRes.success && openRouterRes.data?.query) {
+          return res.status(200).json({
+            success: true,
+            message: "Query generated successfully",
+            data: {
+              sql_query: openRouterRes.data.query,
+              was_modified: false,
+              confidence_score: 0.98,
+            },
+          });
+        }
+      } catch (orErr) {
+        console.warn("OpenRouter direct generation error, trying DRF:", orErr.message);
+      }
+    }
+
+    // 2. Fallback to DRF PyTorch model if OpenRouter is unavailable
     const token = process.env.DRF_SERVICE_TOKEN;
     const host = process.env.DRF_SERVER_HOST;
 
-    if (!token || !host) {
-      return res.status(500).json({
-        success: false,
-        message: "Server configuration error",
-      });
+    if (token && host) {
+      try {
+        const response = await axios.post(
+          `${host}api/generate-sql/`,
+          {
+            user_id: userId,
+            question: message,
+            connectionId: database,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 15000,
+          }
+        );
+        originalDrfQuery = response.data?.sql_query;
+
+        if (originalDrfQuery) {
+          const refinedResult = await refineAndValidateSQLWithLLM({
+            rawQuery: originalDrfQuery,
+            question: message,
+            dialect: dialect || "mysql",
+            metadata: cleanedMetaData,
+          });
+
+          sqlQuery = refinedResult.sql_query;
+          wasModified = refinedResult.was_modified;
+          confidenceScore = refinedResult.confidence_score;
+        }
+      } catch (drfErr) {
+        console.error("DRF fallback error:", drfErr.message);
+      }
     }
 
-    const response = await axios.post(
-      `${host}api/generate-sql/`,
-      {
-        user_id: userId,
-        question: message,
-        connectionId: database,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    let rawSql = response.data?.sql_query;
-
-    // Pass the raw query from DRF to OpenRouter LLM to validate, fix, and complete it
-    const refinedResult = await refineAndValidateSQLWithLLM({
-      rawQuery: rawSql,
-      question: message,
-      dialect: dialect || "mysql",
-      metadata: cleanedMetaData,
-    });
+    if (!sqlQuery) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to generate query across available AI models. Please try again.",
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: "Query generated and verified successfully",
       data: {
-        sql_query: refinedResult.sql_query,
-        original_drf_query: rawSql,
-        was_modified: refinedResult.was_modified,
-        confidence_score: refinedResult.confidence_score,
+        sql_query: sqlQuery,
+        original_drf_query: originalDrfQuery,
+        was_modified: wasModified,
+        confidence_score: confidenceScore,
       },
     });
   } catch (error) {
