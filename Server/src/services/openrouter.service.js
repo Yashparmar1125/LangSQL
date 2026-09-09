@@ -33,7 +33,7 @@ async function callOpenRouter(messages, temperature = 0.1) {
           messages,
           temperature,
           max_tokens: 1500,
-          reasoning: { exclude: true }
+          response_format: { type: "json_object" }
         },
         {
           headers: {
@@ -67,22 +67,20 @@ export const generateSQLWithOpenRouter = async (body, metaData) => {
     const userQuery = body.message;
     const dialect = body.dialect || "sql";
 
-    const systemPrompt = `You are an automated API backend that converts natural language requests into production SQL.
-Your output MUST be a strict, valid JSON object with a single key named "query".
-Example output format:
-{"query": "SELECT id, name FROM users WHERE created_at >= NOW() - INTERVAL '30 days';"}
+    const systemPrompt = `You are a database query compiler.
+You must respond with a JSON object that has one key: "query".
+The value must be the executable SQL string tailored for "${dialect}".
 
 Rules:
-1. Generate accurate SQL conforming strictly to the "${dialect}" syntax.
-2. Only reference existing tables and column names provided in the Database Schema Metadata.
-3. NEVER repeat placeholder text like "THE_GENERATED_SQL_QUERY" — write the real, executable SQL query.
-4. Output raw valid JSON only. Do not wrap in markdown or backticks.`;
+1. ONLY use tables and columns defined in the provided schema.
+2. Formulate the exact SQL query required to answer the user request.
+3. Output valid, parseable JSON with no additional text or markdown formatting.`;
 
-    const userPrompt = `Database Schema Metadata:
+    const userPrompt = `Database Schema:
 ${JSON.stringify(metaData, null, 2)}
 
 User Request: "${userQuery}"
-Target Dialect: ${dialect}`;
+Dialect: ${dialect}`;
 
     const { content } = await callOpenRouter([
       { role: "system", content: systemPrompt },
