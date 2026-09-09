@@ -14,10 +14,14 @@ export const authMiddleware = async (req, res, next) => {
     }
     req.user = decode;
     const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found or session invalid", success: false });
+    }
     req.user.role = user.role;
     next();
   } catch (error) {
-    return res.status(500).json({ message: "Invalid Token", success: false });
+    console.error("authMiddleware token error:", error.message);
+    return res.status(401).json({ message: "Invalid or expired token", success: false });
   }
 };
 
