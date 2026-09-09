@@ -35,6 +35,7 @@ export const extractMetadata = async (data) => {
         user,
         password,
         database,
+        ssl: host && !['localhost', '127.0.0.1'].includes(host) ? { rejectUnauthorized: false } : false
       });
 
       // PostgreSQL Pool doesn't require connection.connect(), use pool directly

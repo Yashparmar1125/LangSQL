@@ -8,10 +8,18 @@ const postgreSQLExecution = async ({
   password,
   database,
   query,
+  ssl,
 }) => {
   let client;
   try {
-    client = new Client({ host, port, user: username, password, database });
+    client = new Client({
+      host,
+      port,
+      user: username,
+      password,
+      database,
+      ssl: ssl !== undefined ? ssl : (host && !['localhost', '127.0.0.1'].includes(host) ? { rejectUnauthorized: false } : false)
+    });
     await client.connect();
     console.log("Connected to PostgreSQL");
 
