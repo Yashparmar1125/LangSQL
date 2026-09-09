@@ -92,7 +92,9 @@ const ResultsTable = ({ results, onCopy, onDownload, onFeedback }) => {
                     key={j}
                     className="px-6 py-4 text-sm whitespace-nowrap"
                   >
-                    {value}
+                    {typeof value === 'object' && value !== null
+                      ? JSON.stringify(value)
+                      : String(value ?? '')}
                   </td>
                 ))}
               </motion.tr>

@@ -206,7 +206,9 @@ const Execution = () => {
                               key={j}
                               className="px-4 py-2 text-sm whitespace-nowrap"
                             >
-                              {value}
+                              {typeof value === 'object' && value !== null
+                                ? JSON.stringify(value)
+                                : String(value ?? '')}
                             </td>
                           ))}
                         </tr>
