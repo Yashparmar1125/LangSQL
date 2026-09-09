@@ -1,0 +1,44 @@
+name: Deploy API to VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Server/**'
+      - 'DRF-Server/**'
+      - 'docker-compose.prod.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Copy code to VM via SSH
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: "./Server,./DRF-Server,./docker-compose.prod.yml,./deploy"
+          target: "/opt/langsql"
+
+      - name: Run Docker Compose
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd /opt/langsql
+            # Create .env file from GitHub Secrets
+            echo "DRF_SECRET_KEY=${{ secrets.DRF_SECRET_KEY }}" > .env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            echo "SALT=${{ secrets.SALT }}" >> .env
+            echo "DRF_SERVICE_TOKEN=${{ secrets.DRF_SERVICE_TOKEN }}" >> .env
+            
+            # Restart docker containers
+            docker compose -f docker-compose.prod.yml up -d --build

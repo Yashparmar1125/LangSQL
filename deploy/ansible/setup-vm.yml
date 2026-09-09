@@ -1,0 +1,93 @@
+---
+- name: Setup LangSQL Server
+  hosts: all
+  become: yes
+  vars:
+    swap_size_mb: 4096
+    domain_name: api.langsql.yashparmar.in
+    email: admin@yashparmar.in
+
+  tasks:
+    - name: Update apt cache and install prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - certbot
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Install Docker and Docker Compose
+      apt:
+        name:
+          - docker-ce
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Check if swap exists
+      command: swapon --show
+      register: swap_check
+      changed_when: false
+
+    - name: Create swap file
+      command: fallocate -l {{ swap_size_mb }}M /swapfile
+      when: swap_check.stdout == ""
+
+    - name: Set swap file permissions
+      file:
+        path: /swapfile
+        mode: "0600"
+      when: swap_check.stdout == ""
+
+    - name: Make swap
+      command: mkswap /swapfile
+      when: swap_check.stdout == ""
+
+    - name: Enable swap
+      command: swapon /swapfile
+      when: swap_check.stdout == ""
+
+    - name: Add swap to fstab
+      lineinfile:
+        path: /etc/fstab
+        line: "/swapfile none swap sw 0 0"
+        state: present
+
+    - name: Check if SSL certificate exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+      register: ssl_cert
+
+    - name: Generate SSL certificate (Standalone)
+      command: >
+        certbot certonly --standalone
+        --non-interactive --agree-tos -m {{ email }}
+        -d {{ domain_name }}
+      when: not ssl_cert.stat.exists
+      ignore_errors: yes
+
+    - name: Ensure app directory exists
+      file:
+        path: /opt/langsql
+        state: directory
+        owner: "{{ ansible_user | default(ansible_env.USER) }}"
+        group: "{{ ansible_user | default(ansible_env.USER) }}"

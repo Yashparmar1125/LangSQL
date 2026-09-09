@@ -1273,8 +1273,8 @@ const Landing = () => {
                 title: 'Company',
                 links: [
                   { label: 'About', href: '/about' },
-                  { label: 'Careers', href: '/careers' },
-                  { label: 'Blog', href: '/blog' }
+                  { label: 'Privacy Policy', href: '/privacy-policy' },
+                  { label: 'Terms & Conditions', href: '/terms-and-conditions' }
                 ]
               },
               {
