@@ -33,6 +33,7 @@ async function callOpenRouter(messages, temperature = 0.1) {
           messages,
           temperature,
           max_tokens: 1500,
+          reasoning: { exclude: true }
         },
         {
           headers: {
@@ -66,22 +67,22 @@ export const generateSQLWithOpenRouter = async (body, metaData) => {
     const userQuery = body.message;
     const dialect = body.dialect || "sql";
 
-    const systemPrompt = `You are an expert SQL engineer specializing in high-performance ${dialect} queries.
-You must return a valid JSON object matching this schema:
-{
-  "query": "THE_GENERATED_SQL_QUERY"
-}
+    const systemPrompt = `You are an automated API backend that converts natural language requests into production SQL.
+Your output MUST be a strict, valid JSON object with a single key named "query".
+Example output format:
+{"query": "SELECT id, name FROM users WHERE created_at >= NOW() - INTERVAL '30 days';"}
+
 Rules:
-1. Generate strictly valid syntax for the "${dialect}" dialect.
-2. Only reference existing tables and columns provided in the schema metadata.
-3. Do NOT include markdown code fences (no \`\`\`sql) inside the JSON string value.
-4. Output raw valid JSON only.`;
+1. Generate accurate SQL conforming strictly to the "${dialect}" syntax.
+2. Only reference existing tables and column names provided in the Database Schema Metadata.
+3. NEVER repeat placeholder text like "THE_GENERATED_SQL_QUERY" — write the real, executable SQL query.
+4. Output raw valid JSON only. Do not wrap in markdown or backticks.`;
 
     const userPrompt = `Database Schema Metadata:
 ${JSON.stringify(metaData, null, 2)}
 
 User Request: "${userQuery}"
-Dialect: ${dialect}`;
+Target Dialect: ${dialect}`;
 
     const { content } = await callOpenRouter([
       { role: "system", content: systemPrompt },
@@ -102,7 +103,6 @@ Dialect: ${dialect}`;
           const parsed = JSON.parse(jsonMatch[0]);
           query = parsed.query || parsed.sql_query || parsed.sql;
         } catch (innerErr) {
-          // If JSON parse fails, attempt key regex
           const keyMatch = jsonMatch[0].match(/"(?:query|sql_query|sql)"\s*:\s*"([^"]+)"/);
           if (keyMatch) query = keyMatch[1];
         }
@@ -110,7 +110,7 @@ Dialect: ${dialect}`;
     }
 
     // Strategy 3: Extract SQL directly from code fences ```sql ... ```
-    if (!query) {
+    if (!query || query === "THE_GENERATED_SQL_QUERY") {
       const sqlBlockMatch = content.match(/```(?:sql)?\s*([\s\S]*?)\s*```/i);
       if (sqlBlockMatch) {
         query = sqlBlockMatch[1].trim();
@@ -118,15 +118,16 @@ Dialect: ${dialect}`;
     }
 
     // Strategy 4: Extract direct SQL statement (SELECT/INSERT/UPDATE/DELETE)
-    if (!query) {
+    if (!query || query === "THE_GENERATED_SQL_QUERY") {
       const statementMatch = content.match(/(SELECT\s+[\s\S]+?;)/i);
       if (statementMatch) {
         query = statementMatch[1].trim();
       }
     }
 
-    if (!query) {
-      query = content.trim();
+    // If still placeholder or empty, clean content
+    if (!query || query === "THE_GENERATED_SQL_QUERY") {
+      query = content.replace(/\{[\s\S]*?\}/g, "").trim();
     }
 
     return {
