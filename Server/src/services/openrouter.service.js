@@ -2,13 +2,14 @@ import axios from "axios";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Ultra-fast, high-throughput free models on OpenRouter with fallback
-const PRIMARY_FREE_MODEL = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+// Ultra-fast, high-throughput free models on OpenRouter currently active
+const PRIMARY_FREE_MODEL = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 const FALLBACK_FREE_MODELS = [
-  "google/gemini-2.0-flash-exp:free",
-  "meta-llama/llama-3.1-8b-instruct:free",
-  "mistralai/mistral-7b-instruct:free",
-  "qwen/qwen-2.5-coder-32b-instruct:free"
+  "nvidia/nemotron-3.5-lightning:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "cohere/north-mini-code:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "openrouter/auto"
 ];
 
 /**
@@ -31,7 +32,7 @@ async function callOpenRouter(messages, temperature = 0.1) {
           model,
           messages,
           temperature,
-          response_format: { type: "json_object" }
+          max_tokens: 1500,
         },
         {
           headers: {
