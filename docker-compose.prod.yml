@@ -42,7 +42,7 @@ services:
       - DRF_SERVICE_TOKEN=${DRF_SERVICE_TOKEN:-5b=61p5&7ga_d#yo1q3-e0$$8^pb@-)lo7qa2a8_h7a8qe7ma^}
       - DRF_SERVER_SERVICE_TOKEN=${DRF_SERVICE_TOKEN:-5b=61p5&7ga_d#yo1q3-e0$$8^pb@-)lo7qa2a8_h7a8qe7ma^}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free}
     depends_on:
       - mongo
       - drf

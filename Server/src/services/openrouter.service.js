@@ -2,14 +2,12 @@ import axios from "axios";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Ultra-fast, high-throughput free models on OpenRouter currently active
-const PRIMARY_FREE_MODEL = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+// Ultra-fast (<1s response), high-throughput free models on OpenRouter
+const PRIMARY_FREE_MODEL = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-super-120b-a12b:free";
 const FALLBACK_FREE_MODELS = [
-  "nvidia/nemotron-3.5-lightning:free",
-  "liquid/lfm-2.5-2.6b:free",
-  "cohere/north-mini-code:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "openrouter/auto"
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  "nvidia/nemotron-3.5-lightning:free"
 ];
 
 /**
@@ -33,7 +31,7 @@ async function callOpenRouter(messages, temperature = 0.1) {
           messages,
           temperature,
           max_tokens: 1500,
-          response_format: { type: "json_object" }
+          reasoning: { effort: "none" }
         },
         {
           headers: {
@@ -42,12 +40,13 @@ async function callOpenRouter(messages, temperature = 0.1) {
             "HTTP-Referer": "https://langsql.yashparmar.in",
             "X-Title": "LangSQL Assistant"
           },
-          timeout: 25000
+          timeout: 15000
         }
       );
 
-      const content = response.data?.choices?.[0]?.message?.content;
-      if (content) {
+      const choice = response.data?.choices?.[0]?.message;
+      const content = choice?.content;
+      if (content && content.trim()) {
         return { content, modelUsed: model };
       }
     } catch (err) {
@@ -67,14 +66,15 @@ export const generateSQLWithOpenRouter = async (body, metaData) => {
     const userQuery = body.message;
     const dialect = body.dialect || "sql";
 
-    const systemPrompt = `You are a database query compiler.
-You must respond with a JSON object that has one key: "query".
-The value must be the executable SQL string tailored for "${dialect}".
+    const systemPrompt = `You are a database query compiler for "${dialect}".
+Generate an executable SQL query strictly tailored for "${dialect}" satisfying the user request and database schema.
+Output ONLY a raw, valid JSON object with format:
+{"query": "<SQL STATEMENT>"}
 
 Rules:
 1. ONLY use tables and columns defined in the provided schema.
-2. Formulate the exact SQL query required to answer the user request.
-3. Output valid, parseable JSON with no additional text or markdown formatting.`;
+2. The query value must be a valid SQL string inside double quotes with internal quotes escaped properly.
+3. Output ONLY the JSON object. Do not include markdown codeblocks, reasoning, or extra commentary.`;
 
     const userPrompt = `Database Schema:
 ${JSON.stringify(metaData, null, 2)}
@@ -89,25 +89,34 @@ Dialect: ${dialect}`;
 
     let query = null;
 
-    // Strategy 1: Try direct JSON parse
+    // Strategy 1: Direct JSON parse
     try {
       const parsed = JSON.parse(content);
       query = parsed.query || parsed.sql_query || parsed.sql;
     } catch (e) {
-      // Strategy 2: Extract first balanced JSON object { ... }
-      const jsonMatch = content.match(/\{[\s\S]*?\}(?=[^}]*$|\s*$|\n)/) || content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          query = parsed.query || parsed.sql_query || parsed.sql;
-        } catch (innerErr) {
-          const keyMatch = jsonMatch[0].match(/"(?:query|sql_query|sql)"\s*:\s*"([^"]+)"/);
-          if (keyMatch) query = keyMatch[1];
+      // Strategy 2: Extract "query": "..." via regex
+      const keyMatch = content.match(/"(?:query|sql_query|sql)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+      if (keyMatch) {
+        query = keyMatch[1].replace(/\\"/g, '"');
+      } else {
+        // Strategy 3: Extract first balanced JSON object { ... }
+        const jsonMatch = content.match(/\{[\s\S]*?\}(?=[^}]*$|\s*$|\n)/) || content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            query = parsed.query || parsed.sql_query || parsed.sql;
+          } catch (innerErr) {
+            // Strategy 3b: Key regex within the match
+            const innerKey = jsonMatch[0].match(/(?:query|sql_query|sql)\s*:\s*([^}\n]+)/i);
+            if (innerKey) {
+              query = innerKey[1].trim().replace(/^['"]|['"]$/g, "");
+            }
+          }
         }
       }
     }
 
-    // Strategy 3: Extract SQL directly from code fences ```sql ... ```
+    // Strategy 4: Extract SQL directly from code fences ```sql ... ```
     if (!query || query === "THE_GENERATED_SQL_QUERY") {
       const sqlBlockMatch = content.match(/```(?:sql)?\s*([\s\S]*?)\s*```/i);
       if (sqlBlockMatch) {
@@ -115,17 +124,22 @@ Dialect: ${dialect}`;
       }
     }
 
-    // Strategy 4: Extract direct SQL statement (SELECT/INSERT/UPDATE/DELETE)
+    // Strategy 5: Extract direct SQL statement (SELECT/INSERT/UPDATE/DELETE)
     if (!query || query === "THE_GENERATED_SQL_QUERY") {
-      const statementMatch = content.match(/(SELECT\s+[\s\S]+?;)/i);
+      const statementMatch = content.match(/((?:SELECT|INSERT|UPDATE|DELETE|WITH)\s+[\s\S]+?;?)/i);
       if (statementMatch) {
         query = statementMatch[1].trim();
       }
     }
 
-    // If still placeholder or empty, clean content
+    // Fallback: If still placeholder or empty, clean content
     if (!query || query === "THE_GENERATED_SQL_QUERY") {
-      query = content.replace(/\{[\s\S]*?\}/g, "").trim();
+      query = content.replace(/^\{|\}$/g, "").trim();
+    }
+
+    // Remove any trailing curly braces or artifacts if extracted from sloppy JSON
+    if (query && typeof query === "string") {
+      query = query.replace(/^["']|["']$/g, "").trim();
     }
 
     return {
