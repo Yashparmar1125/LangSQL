@@ -4,6 +4,7 @@ import { extractMetadata } from "../services/metadata.service.js";
 import axios from "axios";
 import trinoMetadataExtractor from "../extractors/trino.extractor.js";
 import { decryptData } from "../services/aes.encryption.js";
+import { generateSchemaWithOpenRouter } from "../services/openrouter.service.js";
 // Create a new connection
 export const createConnection = async (req, res) => {
   const { connectionData } = req.body;
@@ -229,51 +230,21 @@ export const generateSchema = async (req, res) => {
       });
     }
 
-    const apiKey = process.env.SCHEMA_LANGFLOW_API_KEY;
-    if (!apiKey) {
+    console.log("Generating schema with OpenRouter:", { description, dialect });
+
+    const result = await generateSchemaWithOpenRouter(description, dialect);
+
+    if (!result.success) {
       return res.status(500).json({
         success: false,
-        message: "Server configuration error: Missing SCHEMA_LANGFLOW_API_KEY",
+        message: result.message || "Failed to generate schema",
       });
     }
-
-    console.log("Generating schema with:", { description, dialect });
-
-    const response = await axios.post(
-      "https://api.langflow.astra.datastax.com/lf/ab147fa5-088c-429d-88aa-465c74c8b303/api/v1/run/af4138b3-c5a7-47df-b9da-691551c0bbd6?stream=false",
-      {
-        input_value: JSON.stringify({ description, dialect }),
-        output_type: "chat",
-        input_type: "chat",
-        tweaks: {
-          "Prompt-TySGF": {},
-          "Agent-1Peig": {},
-          "ChatInput-fIIlR": {},
-          "ChatOutput-b7VXk": {},
-          "TextOutput-Q93Ds": {},
-        },
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-      }
-    );
-
-    if (
-      !response.data?.outputs?.[0]?.outputs?.[0]?.results?.message?.data?.text
-    ) {
-      throw new Error("Invalid response format from LangFlow API");
-    }
-
-    const schema =
-      response.data.outputs[0].outputs[0].results.message.data.text;
 
     res.status(200).json({
       success: true,
       message: "Schema generated successfully",
-      schema,
+      schema: result.schema,
     });
   } catch (error) {
     console.error("Schema generation error:", error);

@@ -18,6 +18,8 @@ import Features from './pages/Features'
 import Pricing from './pages/Pricing'
 import Contact from './pages/Contact'
 import DatabaseVisualization from './pages/DatabaseVisualization'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import TermsAndConditions from './pages/TermsAndConditions'
 
 // Components
 import Tutorial from './components/onboarding/Tutorial'
@@ -82,6 +84,8 @@ const App = () => {
             <Route path="/features" element={<Features />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
 
             {/* Onboarding Routes - Only after authentication */}
             <Route

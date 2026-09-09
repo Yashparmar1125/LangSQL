@@ -3,7 +3,10 @@ import Connection from "../models/connection.model.js";
 import { decryptData } from "../services/aes.encryption.js";
 import QueryHistory from "../models/queeryhistory.model.js";
 import axios from "axios";
-import { LangFlowService } from "../services/langflow.service.js";
+import {
+  generateSQLWithOpenRouter,
+  refineAndValidateSQLWithLLM,
+} from "../services/openrouter.service.js";
 import DatabaseMetadata from "../models/databasemetadata.model.js";
 import { extractMetadata } from "../services/metadata.service.js";
 
@@ -134,16 +137,17 @@ export const generateQuery = async (req, res) => {
       db_name: metaData.db_name,
       tables: metaData.tables,
     };
+    console.log(cleanedMetaData);
 
     if (dialect === "trino" || dialect === "spark") {
-      const result = await LangFlowService(req.body, cleanedMetaData);
-      const data = { sql_query: result.data.query };
+      const result = await generateSQLWithOpenRouter(req.body, cleanedMetaData);
+      const data = { sql_query: result.data?.query };
 
       return res.status(result.success ? 200 : 500).json({
         success: result.success,
         message: result.success
           ? "Query generated successfully"
-          : "Failed to generate query",
+          : result.message || "Failed to generate query",
         data,
       });
     }
@@ -172,12 +176,25 @@ export const generateQuery = async (req, res) => {
         },
       }
     );
-    console.log(response.data);
+    let rawSql = response.data?.sql_query;
+
+    // Pass the raw query from DRF to OpenRouter LLM to validate, fix, and complete it
+    const refinedResult = await refineAndValidateSQLWithLLM({
+      rawQuery: rawSql,
+      question: message,
+      dialect: dialect || "mysql",
+      metadata: cleanedMetaData,
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Query generated successfully",
-      data: response.data,
+      message: "Query generated and verified successfully",
+      data: {
+        sql_query: refinedResult.sql_query,
+        original_drf_query: rawSql,
+        was_modified: refinedResult.was_modified,
+        confidence_score: refinedResult.confidence_score,
+      },
     });
   } catch (error) {
     console.error("Query generation error:", error);
