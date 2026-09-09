@@ -88,22 +88,45 @@ Dialect: ${dialect}`;
       { role: "user", content: userPrompt }
     ]);
 
-    let parsed;
+    let query = null;
+
+    // Strategy 1: Try direct JSON parse
     try {
-      parsed = JSON.parse(content);
+      const parsed = JSON.parse(content);
+      query = parsed.query || parsed.sql_query || parsed.sql;
     } catch (e) {
-      // Fallback extraction if model wraps in code fences
-      const match = content.match(/\{[\s\S]*\}/);
-      if (match) {
-        parsed = JSON.parse(match[0]);
-      } else {
-        throw new Error("Invalid JSON response received from OpenRouter LLM");
+      // Strategy 2: Extract first balanced JSON object { ... }
+      const jsonMatch = content.match(/\{[\s\S]*?\}(?=[^}]*$|\s*$|\n)/) || content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          query = parsed.query || parsed.sql_query || parsed.sql;
+        } catch (innerErr) {
+          // If JSON parse fails, attempt key regex
+          const keyMatch = jsonMatch[0].match(/"(?:query|sql_query|sql)"\s*:\s*"([^"]+)"/);
+          if (keyMatch) query = keyMatch[1];
+        }
       }
     }
 
-    const query = parsed.query || parsed.sql_query || parsed.sql;
+    // Strategy 3: Extract SQL directly from code fences ```sql ... ```
     if (!query) {
-      throw new Error("No SQL query returned in JSON response");
+      const sqlBlockMatch = content.match(/```(?:sql)?\s*([\s\S]*?)\s*```/i);
+      if (sqlBlockMatch) {
+        query = sqlBlockMatch[1].trim();
+      }
+    }
+
+    // Strategy 4: Extract direct SQL statement (SELECT/INSERT/UPDATE/DELETE)
+    if (!query) {
+      const statementMatch = content.match(/(SELECT\s+[\s\S]+?;)/i);
+      if (statementMatch) {
+        query = statementMatch[1].trim();
+      }
+    }
+
+    if (!query) {
+      query = content.trim();
     }
 
     return {
