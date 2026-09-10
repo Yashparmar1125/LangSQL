@@ -53,21 +53,34 @@ const Execution = () => {
     showSuccess('Query saved successfully!')
   }
 
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '';
+    const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
   const handleDownload = () => {
-    if (!results) return
+    if (!results?.data || results.data.length === 0) {
+      showError('No query results to export');
+      return;
+    }
+    const headers = Object.keys(results.data[0]);
     const csv = [
-      Object.keys(results.data[0]).join(','),
-      ...results.data.map(row => Object.values(row).join(','))
-    ].join('\n')
+      headers.map(escapeCSV).join(','),
+      ...results.data.map(row => headers.map(h => escapeCSV(row[h])).join(','))
+    ].join('\n');
     
-    const element = document.createElement('a')
-    const file = new Blob([csv], { type: 'text/csv' })
-    element.href = URL.createObjectURL(file)
-    element.download = 'query_results.csv'
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
-    showSuccess('Results downloaded successfully!')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const element = document.createElement('a');
+    element.href = URL.createObjectURL(blob);
+    element.download = 'query_results.csv';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    showSuccess('Results downloaded successfully!');
   }
 
   return (
