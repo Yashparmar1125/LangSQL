@@ -21,8 +21,13 @@ def _ensure_model_loaded():
                 "ML dependencies are not installed. Install requirements-ml.txt to enable text-to-SQL."
             ) from exc
 
-        _tokenizer = AutoTokenizer.from_pretrained("gaussalgo/T5-LM-Large-text2sql-spider")
-        _model = AutoModelForSeq2SeqLM.from_pretrained("gaussalgo/T5-LM-Large-text2sql-spider")
+        try:
+            # First try loading with local_files_only to avoid HF network calls and retries
+            _tokenizer = AutoTokenizer.from_pretrained("gaussalgo/T5-LM-Large-text2sql-spider", local_files_only=True)
+            _model = AutoModelForSeq2SeqLM.from_pretrained("gaussalgo/T5-LM-Large-text2sql-spider", local_files_only=True)
+        except Exception:
+            _tokenizer = AutoTokenizer.from_pretrained("gaussalgo/T5-LM-Large-text2sql-spider")
+            _model = AutoModelForSeq2SeqLM.from_pretrained("gaussalgo/T5-LM-Large-text2sql-spider")
         _device = "cuda" if torch.cuda.is_available() else "cpu"
         _model.to(_device)
 

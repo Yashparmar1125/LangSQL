@@ -2,263 +2,163 @@
 
 <div align="center">
   <img src="Client/public/Logo-White.png" alt="LangSQL Logo" width="200"/>
-  <p><em>Transform natural language into powerful SQL queries.</em></p>
+  <p><em>Transform natural language into powerful, verified SQL queries with dual-layer AI architecture.</em></p>
 </div>
-
-## Overview
-
-LangSQL is an advanced web application that leverages artificial intelligence to help developers generate, translate, and optimize SQL queries. It features a modern three-tier architecture with a React frontend and two specialized backend servers - one for query processing and another for AI-powered natural language understanding.
-
-## Architecture
-
-### 1. Frontend (React + JavaScript)
-- Modern React 18 application with JavaScript
-- Real-time query building and execution
-- Interactive data visualization
-- Responsive and accessible UI
-- State management with Redux Toolkit
-
-### 2. Node.js Backend (Query Processing)
-- Express.js server for query processing
-- Multiple database support
-- Query optimization and execution
-- Real-time WebSocket communication
-- Authentication and authorization
-
-### 3. Django Backend (AI Processing)
-- Django REST Framework for AI services
-- Natural Language Processing capabilities
-- Query translation and optimization
-- Schema generation and validation
-- MongoDB integration for flexible data storage
-
-## Key Features
-
-### 1. Natural Language to SQL
-- Convert natural language descriptions into optimized SQL queries
-- Support for multiple SQL dialects (Trino, Spark SQL)
-- Context-aware query generation
-- Real-time query suggestions and auto-completion
-- Universal Sentence Encoder for better understanding
-
-### 2. Schema Management
-- Generate database schemas from natural language descriptions
-- Visual schema representation
-- Schema validation and optimization
-- Support for multiple database types
-- MongoDB integration for flexible data storage
-
-### 3. Query Building & Execution
-- Intuitive query builder interface
-- Real-time query execution
-- Performance optimization suggestions
-- Query history and favorites
-- Export query results in various formats
-- Interactive data visualization with Nivo charts
-
-### 4. Advanced Features
-- Dark/Light mode support
-- Responsive design for all devices
-- Real-time collaboration
-- Query templates and snippets
-- Database connection management
-- Firebase integration for real-time features
-- Email notifications via EmailJS
-
-## Tech Stack
-
-### Frontend
-- React 18 with JavaScript
-- Vite for build tooling
-- TailwindCSS for styling
-- Monaco Editor for code editing
-- React Router for navigation
-- Framer Motion for animations
-- Headless UI for accessible components
-- Lucide Icons for UI elements
-- Redux Toolkit for state management
-- Nivo and Chart.js for data visualization
-- TensorFlow.js for client-side ML
-- Firebase for real-time features
-
-### Node.js Backend
-- Node.js with Express
-- TypeScript
-- Multiple database support
-- RESTful API architecture
-- Authentication and authorization
-- Real-time WebSocket communication
-- Query optimization engine
-
-### Django Backend
-- Django 5.1.7
-- Django REST Framework
-- MongoDB with Djongo
-- Hugging Face Transformers
-- PyTorch for ML models
-- Natural Language Processing tools
-- Schema validation and generation
-
-## Prerequisites
-
-- Node.js 16.x or later
-- Python 3.8 or later
-- npm 7.x or later
-- Git
-- MongoDB (for Django backend)
-
-## Getting Started
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Yashparmar1125/LangSQL-Inspiron-4.0.git
-   cd LangSQL
-   ```
-
-2. Set up the Django backend:
-   ```bash
-   cd DRF-Server
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   cp .env.example .env
-   # Edit .env with your configuration
-   python manage.py migrate
-   python manage.py runserver
-   ```
-
-3. Set up the Node.js backend:
-   ```bash
-   cd Server
-   npm install
-   cp .env.example .env
-   # Edit .env with your configuration
-   npm run dev
-   ```
-
-4. Set up the frontend:
-   ```bash
-   cd Client
-   npm install
-   cp .env.example .env
-   # Edit .env with your configuration
-   npm run dev
-   ```
-
-5. Open your browser and navigate to `http://localhost:5173`
-
-## Project Structure
-
-```
-LangSQL/
-├── Client/                      # Frontend React application
-│   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   ├── pages/             # Page components
-│   │   ├── services/          # API services
-│   │   ├── utils/             # Utility functions
-│   │   ├── assets/            # Static assets (images, fonts)
-│   │   ├── Firebase/          # Firebase configuration
-│   │   ├── redux/             # Redux state management
-│   │   ├── contexts/          # React contexts
-│   │   ├── App.jsx            # Main application component
-│   │   ├── main.jsx           # Application entry point
-│   │   ├── App.css            # Main application styles
-│   │   └── index.css          # Global styles
-│   ├── public/                # Public static files
-│   └── package.json           # Frontend dependencies
-│
-├── Server/                     # Node.js backend
-│   ├── src/
-│   │   ├── routes/            # API route definitions
-│   │   ├── controllers/       # Route controllers
-│   │   ├── workers/           # Background workers
-│   │   ├── services/          # Business logic
-│   │   ├── extractors/        # Data extraction logic
-│   │   ├── databaseHandlers/  # Database interaction
-│   │   ├── utils/             # Utility functions
-│   │   ├── models/            # Data models
-│   │   ├── middlewares/       # Express middlewares
-│   │   ├── factories/         # Factory patterns
-│   │   ├── config/            # Configuration files
-│   │   ├── validators/        # Input validation
-│   │   └── server.js          # Server entry point
-│   └── package.json           # Backend dependencies
-│
-├── DRF-Server/                 # Django backend
-│   ├── LangSQL/               # Django project
-│   │   ├── RESTAPI/           # REST API endpoints
-│   │   ├── LangSQL/           # Django project settings
-│   │   └── manage.py          # Django management script
-│   ├── requirements.txt       # Python dependencies
-│   └── .env                   # Environment variables
-│
-├── docs/                      # Documentation
-│   ├── MultipleDB.md         # Multiple database documentation
-│   ├── AutoCompleteFeature.md # Autocomplete feature docs
-│   ├── JDBC-Approach.md      # JDBC implementation docs
-│   ├── ExtractorFactory.md   # Extractor factory pattern docs
-│   ├── MetaData_Extraction.md # Metadata extraction docs
-│   ├── Client-Server-DRF-Communication.md # Communication docs
-│   ├── DataBase_Schema.md    # Database schema docs
-│   ├── KnexUsage.md          # Knex.js usage docs
-│   └── CoreFeature.md        # Core features documentation
-│
-├── .vscode/                   # VS Code configuration
-├── LICENSE                    # MIT License
-└── README.md                  # Project documentation
-```
-
-## Development
-
-### Frontend
-- `npm run dev` - Start development server
-- `npm run build` - Create production build
-- `npm run preview` - Preview production build locally
-- `npm run lint` - Run ESLint
-
-### Node.js Backend
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build TypeScript files
-- `npm start` - Start production server
-- `npm run test` - Run tests
-
-### Django Backend
-- `python manage.py runserver` - Start development server
-- `python manage.py migrate` - Apply database migrations
-- `python manage.py test` - Run tests
-- `python manage.py collectstatic` - Collect static files
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Monaco Editor](https://microsoft.github.io/monaco-editor/) for the code editor
-- [TailwindCSS](https://tailwindcss.com/) for the styling
-- [React Router](https://reactrouter.com/) for routing
-- [Framer Motion](https://www.framer.com/motion/) for animations
-- [Hugging Face](https://huggingface.co/) for ML models
-- [MongoDB](https://www.mongodb.com/) for database support
-- All contributors who have helped shape this project
-
-## Support
-
-For support, please open an issue in the GitHub repository or contact the maintainers.
 
 ---
 
-<div align="center">
-  Made with ❤️ by the LangSQL Team
-</div>
+## 🏗️ Architecture & AI Pipeline Overview
+
+LangSQL uses a three-tier microservices architecture with a **Domain-Trained Model First, Cloud LLM QA Second** approach:
+
+```
+[ User Request ]
+       │
+       ▼
+[ React 18 Client ]  (Port 5173 - Monaco Editor, TF.js, Query Visualizations)
+       │
+       ▼ HTTPS / REST
+[ Node.js API Gateway ]  (Port 5000 - Orchestrator, AES-256 Crypto, Dialect Registry)
+       │
+       ├────────────────────────────────────────┐
+       ▼ (Step 1: Primary Inference)            ▼ (Step 2: Correctness & QA)
+[ Django DRF AI Service ]                [ OpenRouter Cloud LLM ]
+  - Port 8000                              - Nemotron-3 Super / Ultra
+  - T5-LM-Large fine-tuned on Spider       - Reasoning Suppressed (<1s SLA)
+  - Beam Search (k=5) + Schema Serialization - Validates syntax & target dialect
+       │                                        ▲
+       └────────────────────────────────────────┘
+```
+
+1. **Primary Generation**: The query is generated by an on-premise **Seq2Seq Transformer (`gaussalgo/T5-LM-Large-text2sql-spider`)** fine-tuned on 166 databases from Yale's Spider dataset.
+2. **Mandatory Inspection**: The generated query candidate passes through an **OpenRouter LLM Quality Assurance check** to verify table/column existence against schema metadata, resolve dialect differences (PostgreSQL vs MySQL vs Trino), and score query confidence.
+3. **Resilient Failover**: If the local ML service is unreachable, OpenRouter takes over generation seamlessly.
+
+---
+
+## 📋 Prerequisites
+
+Ensure the following tools are installed on your machine before running:
+- **Node.js**: `v18.x` or `v20.x` ([Download Node.js](https://nodejs.org/))
+- **Python**: `v3.11` or `v3.12` ([Download Python](https://www.python.org/))
+- **Git**: ([Download Git](https://git-scm.com/))
+- **Hardware**: Minimum 8GB RAM recommended for local ML model inference.
+
+---
+
+## 🚀 How to Run the Project Locally (Step-by-Step)
+
+Clone the repository to your computer:
+```bash
+git clone https://github.com/Yashparmar1125/LangSQL.git
+cd LangSQL
+```
+
+---
+
+### Step 1: Set Up & Start the Django AI Microservice (Port 8000)
+
+Open your **first terminal window**:
+
+```bash
+# 1. Navigate to the DRF service directory
+cd DRF-Server/LangSQL
+
+# 2. Create a virtual environment
+python -m venv venv
+
+# 3. Activate the virtual environment
+# Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# Windows (CMD):
+.\venv\Scripts\activate.bat
+# macOS / Linux:
+source venv/bin/activate
+
+# 4. Install dependencies (PyTorch CPU + Transformers + Django)
+pip install -r requirements.txt
+pip install torch transformers sentencepiece huggingface-hub --extra-index-url https://download.pytorch.org/whl/cpu
+
+# 5. Create .env file
+cp .env.example .env
+
+# 6. Run the AI server
+python manage.py runserver 127.0.0.1:8000
+```
+> *Note on first launch: Hugging Face will automatically download the `gaussalgo/T5-LM-Large-text2sql-spider` weights (~1.5GB) once into your local cache.*
+
+You can verify the service is running by opening: `http://127.0.0.1:8000/api/health/` (returns `{"status": "ok"}`).
+
+---
+
+### Step 2: Set Up & Start the Node.js API Gateway (Port 5000)
+
+Open your **second terminal window**:
+
+```bash
+# 1. Navigate to the Server directory
+cd Server
+
+# 2. Install Node dependencies
+npm install
+
+# 3. Create .env file
+cp .env.example .env
+
+# 4. Configure your environment variables in Server/.env:
+# Ensure OPENROUTER_API_KEY is populated with your key (get one free at https://openrouter.ai/keys)
+
+# 5. Start the backend development server
+npm run dev
+```
+
+The Node.js server will start on `http://localhost:5000`.
+
+---
+
+### Step 3: Set Up & Start the React Frontend (Port 5173)
+
+Open your **third terminal window**:
+
+```bash
+# 1. Navigate to the Client directory
+cd Client
+
+# 2. Install dependencies
+npm install
+
+# 3. Create .env file
+cp .env.example .env
+
+# 4. Start Vite development server
+npm run dev
+```
+
+Open your browser and visit: **`http://localhost:5173`**.
+
+---
+
+## 🔐 Crucial Environment Variables Note
+
+> [!IMPORTANT]
+> The encryption salt **`SALT`** in `Server/.env` and **`VITE_SALT`** in `Client/.env` **must match exactly**:
+> ```env
+> SALT=a3f1c8d9e27b4f56a8e2d5c6f3a9e4b7f1d2c3e4a5b6c7d8e9f0a1b2c3d4e5f6
+> VITE_SALT=a3f1c8d9e27b4f56a8e2d5c6f3a9e4b7f1d2c3e4a5b6c7d8e9f0a1b2c3d4e5f6
+> ```
+> This salt is used to derive AES-256 keys for zero-knowledge credential encryption between the browser and backend. If they differ, database connections will throw `Malformed UTF-8 data` errors.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Client**: React 18, Vite, TailwindCSS, Monaco Editor, Redux Toolkit, Framer Motion, Chart.js / Nivo.
+- **API Server**: Node.js, Express, Axios, CryptoJS (AES-256), pg (PostgreSQL), mysql2, Trino Client.
+- **AI Microservice**: Python 3.12, Django 5.1, Django REST Framework, PyTorch (CPU/CUDA), Hugging Face Transformers (`T5-LM-Large-text2sql-spider`), SentencePiece.
+- **Validation & Refiner**: OpenRouter AI (Nemotron-3 models with suppressed reasoning).
+- **Metadata Database**: MongoDB Atlas.
+
+---
+
+## 📄 License
+This project is licensed under the MIT License.

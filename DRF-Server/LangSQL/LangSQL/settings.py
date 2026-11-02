@@ -91,10 +91,15 @@ MONGO_DB_NAME = "LangSQL"
 def get_mongo_client():
     global MONGO_CLIENT
     if MONGO_CLIENT is None:
-        MONGO_CLIENT = MongoClient(MONGO_URI)
+        try:
+            MONGO_CLIENT = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000, connect=False)
+        except Exception as e:
+            print("MongoDB initialization warning:", e)
     return MONGO_CLIENT
 
-MONGO_DB = get_mongo_client()['LangSQL']
+def get_mongo_db():
+    client = get_mongo_client()
+    return client['LangSQL'] if client else None
 
 
 LOGGING = {

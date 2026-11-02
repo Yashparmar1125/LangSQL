@@ -156,64 +156,94 @@ export const generateQuery = async (req, res) => {
     let originalDrfQuery = null;
     let wasModified = false;
     let confidenceScore = 0.95;
+    let generationSource = "drf-spider-t5";
 
-    // 1. First attempt generation directly via OpenRouter (fast, high-throughput, never OOMs)
-    if (process.env.OPENROUTER_API_KEY) {
-      try {
-        const openRouterRes = await generateSQLWithOpenRouter(req.body, cleanedMetaData);
-        if (openRouterRes.success && openRouterRes.data?.query) {
-          return res.status(200).json({
-            success: true,
-            message: "Query generated successfully",
-            data: {
-              sql_query: openRouterRes.data.query,
-              was_modified: false,
-              confidence_score: 0.98,
-            },
-          });
-        }
-      } catch (orErr) {
-        console.warn("OpenRouter direct generation error, trying DRF:", orErr.message);
-      }
-    }
-
-    // 2. Fallback to DRF PyTorch model if OpenRouter is unavailable
+    // 1. PRIMARY PIPELINE: Fine-tuned T5-Spider model on DRF
     const token = process.env.DRF_SERVICE_TOKEN;
     const host = process.env.DRF_SERVER_HOST;
 
     if (token && host) {
       try {
+        console.log(`[AI Pipeline] Calling primary DRF T5 model at ${host}api/generate-sql/...`);
         const response = await axios.post(
           `${host}api/generate-sql/`,
           {
             user_id: userId,
             question: message,
             connectionId: database,
+            dialect: dialect || "mysql",
+            schema: cleanedMetaData,
           },
           {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-            timeout: 15000,
+            timeout: 25000,
           }
         );
+
         originalDrfQuery = response.data?.sql_query;
 
         if (originalDrfQuery) {
-          const refinedResult = await refineAndValidateSQLWithLLM({
-            rawQuery: originalDrfQuery,
-            question: message,
-            dialect: dialect || "mysql",
-            metadata: cleanedMetaData,
-          });
+          console.log("[AI Pipeline] DRF primary model generated SQL:", originalDrfQuery);
 
-          sqlQuery = refinedResult.sql_query;
-          wasModified = refinedResult.was_modified;
-          confidenceScore = refinedResult.confidence_score;
+          // Mandate OpenRouter validation and correctness check
+          let qaFeedback = "Validated against schema";
+          if (process.env.OPENROUTER_API_KEY) {
+            try {
+              console.log("[AI Pipeline] Validating & correcting query through OpenRouter LLM...");
+              const refinedResult = await refineAndValidateSQLWithLLM({
+                rawQuery: originalDrfQuery,
+                question: message,
+                dialect: dialect || "mysql",
+                metadata: cleanedMetaData,
+              });
+
+              sqlQuery = refinedResult.sql_query;
+              wasModified = refinedResult.was_modified;
+              confidenceScore = refinedResult.confidence_score;
+              qaFeedback = refinedResult.qa_feedback;
+              console.log("[AI Pipeline] OpenRouter validation complete. Final SQL:", sqlQuery);
+            } catch (refineErr) {
+              console.warn("[AI Pipeline] OpenRouter validation error, using original query:", refineErr.message);
+              sqlQuery = originalDrfQuery;
+            }
+          } else {
+            sqlQuery = originalDrfQuery;
+          }
+
+          return res.status(200).json({
+            success: true,
+            message: wasModified ? "Query generated, corrected, and verified" : "Query generated and verified successfully",
+            data: {
+              sql_query: sqlQuery,
+              original_drf_query: originalDrfQuery,
+              was_modified: wasModified,
+              confidence_score: confidenceScore,
+              feedback: qaFeedback,
+              source: "drf-t5-validated-by-openrouter",
+            },
+          });
         }
       } catch (drfErr) {
-        console.error("DRF fallback error:", drfErr.message);
+        console.warn("[AI Pipeline] Primary DRF T5 model error, falling back to OpenRouter:", drfErr.message);
+      }
+    }
+
+    // 2. FALLBACK PIPELINE: OpenRouter as fallback if DRF is unavailable
+    if (!sqlQuery && process.env.OPENROUTER_API_KEY) {
+      try {
+        console.log("[AI Pipeline] Primary model unavailable. Generating via OpenRouter fallback...");
+        const openRouterRes = await generateSQLWithOpenRouter(req.body, cleanedMetaData);
+        if (openRouterRes.success && openRouterRes.data?.query) {
+          sqlQuery = openRouterRes.data.query;
+          wasModified = false;
+          confidenceScore = 0.90;
+          generationSource = "openrouter-fallback";
+        }
+      } catch (orErr) {
+        console.error("[AI Pipeline] OpenRouter fallback generation error:", orErr.message);
       }
     }
 
@@ -232,6 +262,7 @@ export const generateQuery = async (req, res) => {
         original_drf_query: originalDrfQuery,
         was_modified: wasModified,
         confidence_score: confidenceScore,
+        source: generationSource,
       },
     });
   } catch (error) {

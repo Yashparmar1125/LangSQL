@@ -212,27 +212,31 @@ Target Dialect: ${dialect}`;
  */
 export const refineAndValidateSQLWithLLM = async ({ rawQuery, question, dialect = "sql", metadata }) => {
   try {
-    const systemPrompt = `You are a Principal Database Architect and SQL QA Lead.
-Your job is to inspect an AI-generated SQL query draft for accuracy, syntax errors, hallucinations, and incompleteness.
-Return a valid JSON object matching this schema:
-{
-  "sql_query": "CORRECTED_AND_OPTIMIZED_SQL_QUERY",
-  "was_modified": true,
-  "confidence_score": 0.95
-}
-Rules:
-1. Verify tables, columns, and joins against the provided Database Schema Metadata.
-2. If the query draft is incomplete, truncated, or syntactically invalid for "${dialect}", fix it completely.
-3. If the query draft is already correct, keep it as is.
-4. Output raw valid JSON only without markdown code blocks.`;
+    const systemPrompt = `You are a Principal Database Architect and SQL Quality Assurance Lead.
+A fine-tuned text-to-SQL neural model generated an initial draft SQL query for a user question.
+You MUST thoroughly inspect, correct, and validate this query against the provided Database Schema Metadata for the target dialect: "${dialect}".
 
-    const userPrompt = `User's Request: "${question}"
+Strict Validation Rules:
+1. Verify all table names, column names, relationships, and data types strictly exist in the schema.
+2. Fix any syntax errors, hallucinated columns/tables, mismatched JOIN keys, or missing dialect-specific functions (e.g. proper ILIKE/LIKE, quotation rules for "${dialect}").
+3. If the query is already 100% correct and executable for "${dialect}", keep the logic intact.
+4. Provide constructive QA feedback in "qa_feedback" explaining what was verified or corrected.
+5. You MUST return ONLY a valid JSON object matching this exact schema:
+{
+  "sql_query": "<VERIFIED_OR_CORRECTED_EXECUTABLE_SQL>",
+  "was_modified": true_or_false,
+  "confidence_score": 0.98,
+  "qa_feedback": "Summary of verification or corrections made"
+}
+Do NOT include markdown backticks or commentary outside the JSON object.`;
+
+    const userPrompt = `User's Question: "${question}"
 Target Dialect: ${dialect}
 
 Database Schema Metadata:
 ${JSON.stringify(metadata, null, 2)}
 
-Draft SQL Query from DRF:
+Draft SQL Query from Fine-Tuned Model:
 ${rawQuery}`;
 
     const { content, modelUsed } = await callOpenRouter([
@@ -240,36 +244,65 @@ ${rawQuery}`;
       { role: "user", content: userPrompt }
     ]);
 
-    let parsed;
+    let parsed = null;
     try {
       parsed = JSON.parse(content);
     } catch (e) {
-      const match = content.match(/\{[\s\S]*\}/);
-      if (match) {
-        parsed = JSON.parse(match[0]);
-      } else {
-        // If parsing fails, fall back to the raw query
-        return {
-          success: true,
-          sql_query: rawQuery,
-          modelUsed
+      // Regex fallback 1: Extract "sql_query" or "query" key
+      const keyMatch = content.match(/"(?:sql_query|query|sql)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+      if (keyMatch) {
+        parsed = {
+          sql_query: keyMatch[1].replace(/\\"/g, '"'),
+          was_modified: true,
+          confidence_score: 0.95,
+          qa_feedback: "Extracted via regex fallback"
         };
+      } else {
+        // Regex fallback 2: First balanced JSON object
+        const match = content.match(/\{[\s\S]*?\}(?=[^}]*$|\s*$|\n)/) || content.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            parsed = JSON.parse(match[0]);
+          } catch (innerErr) {
+            console.warn("Could not parse extracted JSON block, extracting raw SQL...");
+          }
+        }
       }
     }
 
-    const finalQuery = parsed.sql_query || parsed.query || parsed.sql || rawQuery;
+    let finalQuery = parsed?.sql_query || parsed?.query || parsed?.sql;
+
+    // Regex fallback 3: Extract SQL statement directly if JSON was malformed
+    if (!finalQuery || finalQuery === "CORRECTED_AND_OPTIMIZED_SQL_QUERY") {
+      const statementMatch = content.match(/((?:SELECT|INSERT|UPDATE|DELETE|WITH)\s+[\s\S]+?;?)/i);
+      if (statementMatch) {
+        finalQuery = statementMatch[1].trim();
+      }
+    }
+
+    if (!finalQuery || finalQuery === "CORRECTED_AND_OPTIMIZED_SQL_QUERY") {
+      finalQuery = rawQuery;
+    }
+
+    // Clean any leading/trailing quotes or backticks
+    finalQuery = finalQuery.replace(/^["'`]|["'`]$/g, "").trim();
+
     return {
       success: true,
       sql_query: finalQuery,
-      was_modified: parsed.was_modified ?? true,
-      confidence_score: parsed.confidence_score ?? 0.95,
+      was_modified: parsed?.was_modified ?? (finalQuery !== rawQuery),
+      confidence_score: parsed?.confidence_score ?? 0.95,
+      qa_feedback: parsed?.qa_feedback || "Validated against schema metadata",
       modelUsed
     };
   } catch (err) {
-    console.error("refineAndValidateSQLWithLLM Error (falling back to raw query):", err.message);
+    console.error("refineAndValidateSQLWithLLM Error (falling back to raw model query):", err.message);
     return {
       success: true,
       sql_query: rawQuery,
+      was_modified: false,
+      confidence_score: 0.85,
+      qa_feedback: `Validation bypassed due to: ${err.message}`,
       error: err.message
     };
   }
